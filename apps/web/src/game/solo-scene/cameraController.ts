@@ -4,6 +4,7 @@ import { ARENA_HALF_EXTENT, type SessionSnapshot } from "@snowbattle/shared";
 
 const CAMERA_HEIGHT = 34;
 const CAMERA_LERP_SPEED = 4.4;
+const CAMERA_LOOK_TARGET_Z_BIAS = 0.4;
 const CAMERA_OFFSET_Z = 22;
 
 export class SoloSceneCameraController {
@@ -22,19 +23,18 @@ export class SoloSceneCameraController {
 
   update(snapshot: SessionSnapshot | null, delta: number) {
     if (snapshot) {
-      const focusX =
-        snapshot.localPlayer.x +
-        (snapshot.hud.cursorX - snapshot.localPlayer.x) * 0.32;
-      const focusZ =
-        snapshot.localPlayer.z +
-        (snapshot.hud.cursorZ - snapshot.localPlayer.z) * 0.32;
+      const targets = getCameraRigTargets(snapshot);
 
       this.scratchCameraPosition.set(
-        snapshot.localPlayer.x,
-        CAMERA_HEIGHT,
-        snapshot.localPlayer.z + CAMERA_OFFSET_Z
+        targets.position.x,
+        targets.position.y,
+        targets.position.z
       );
-      this.scratchLookTarget.set(focusX, 1.5, focusZ + 0.4);
+      this.scratchLookTarget.set(
+        targets.lookTarget.x,
+        targets.lookTarget.y,
+        targets.lookTarget.z
+      );
     } else {
       this.scratchCameraPosition.copy(this.idleCameraPosition);
       this.scratchLookTarget.copy(this.idleLookTarget);
@@ -82,6 +82,29 @@ export class SoloSceneCameraController {
       z: clamp(origin.z + direction.z * t, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT)
     };
   }
+}
+
+export function getCameraRigTargets(snapshot: SessionSnapshot) {
+  const zDirection = snapshot.localPlayer.slot === "B" ? -1 : 1;
+  const focusX =
+    snapshot.localPlayer.x +
+    (snapshot.hud.cursorX - snapshot.localPlayer.x) * 0.32;
+  const focusZ =
+    snapshot.localPlayer.z +
+    (snapshot.hud.cursorZ - snapshot.localPlayer.z) * 0.32;
+
+  return {
+    lookTarget: {
+      x: focusX,
+      y: 1.5,
+      z: focusZ + CAMERA_LOOK_TARGET_Z_BIAS * zDirection
+    },
+    position: {
+      x: snapshot.localPlayer.x,
+      y: CAMERA_HEIGHT,
+      z: snapshot.localPlayer.z + CAMERA_OFFSET_Z * zDirection
+    }
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

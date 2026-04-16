@@ -6,13 +6,20 @@ import {
 } from "@snowbattle/shared";
 
 import { ColyseusSessionProvider } from "../providers/ColyseusSessionProvider";
+import { getMultiplayerUiState } from "./multiplayerUiState";
 import { getProductionServerUrl, resolveServerUrl } from "../serverUrl";
-import { mountGameSession, presentDuelHud, renderSessionHud } from "./solo-page";
+import {
+  mountGameSession,
+  presentDuelHud,
+  presentDuelSkillStrip,
+  renderDuelSkillStrip,
+  renderSessionHud
+} from "./solo-page";
 
 export function bootMultiplayerPage(root: HTMLDivElement) {
   root.innerHTML = `
     <div class="shell shell--duel">
-      <section class="hero">
+      <section class="hero" id="multiplayer-hero">
         <div class="eyebrow">Vibe Jam Ready · Instant Browser Duel</div>
         <h1 class="title">Snow<span>Battle</span></h1>
         <p class="lede">
@@ -26,7 +33,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
       <section class="arena">
         <div class="viewport" id="viewport" data-testid="multiplayer-viewport"></div>
         <div class="hud">
-          <div class="panel">
+          <div class="panel" id="multiplayer-queue-panel">
             <h2>Live Queue</h2>
             <div class="status-line">
               <span class="status-pill" id="status-pill" data-testid="multiplayer-status">Booting server link…</span>
@@ -60,7 +67,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
             <div class="result" id="result-banner" data-testid="multiplayer-result"></div>
             <button class="primary-button" id="requeue-button" disabled>Requeue</button>
           </div>
-          <div class="panel panel-stack">
+          <div class="panel panel-stack" id="multiplayer-debug-panel" hidden>
             <div class="panel panel--solo">
               <h3>Live Duel</h3>
               <div class="grid players">
@@ -144,11 +151,38 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
             </div>
           </div>
         </div>
+        <div
+          class="duel-skill-strip"
+          id="multiplayer-prod-skill-strip"
+          data-testid="multiplayer-prod-skill-strip"
+          hidden
+        >
+          <div class="duel-skill-chip">
+            <span>Cooldown</span>
+            <strong id="multiplayer-prod-cooldown" data-testid="multiplayer-prod-cooldown">0.00s</strong>
+          </div>
+          <div class="duel-skill-chip">
+            <span>Wall</span>
+            <strong id="multiplayer-prod-wall" data-testid="multiplayer-prod-wall">Wall 2</strong>
+          </div>
+          <div class="duel-skill-chip">
+            <span>Turret</span>
+            <strong id="multiplayer-prod-turret" data-testid="multiplayer-prod-turret">Turret 1</strong>
+          </div>
+          <div class="duel-skill-chip">
+            <span>Heater</span>
+            <strong id="multiplayer-prod-heater" data-testid="multiplayer-prod-heater">Heater 1</strong>
+          </div>
+        </div>
       </section>
     </div>
   `;
 
   const viewport = root.querySelector<HTMLElement>("#viewport");
+  const hero = root.querySelector<HTMLElement>("#multiplayer-hero");
+  const queuePanel = root.querySelector<HTMLElement>("#multiplayer-queue-panel");
+  const debugPanel = root.querySelector<HTMLElement>("#multiplayer-debug-panel");
+  const prodSkillStrip = root.querySelector<HTMLElement>("#multiplayer-prod-skill-strip");
   const guestNameInput = root.querySelector<HTMLInputElement>("#guest-name");
   const saveNameButton = root.querySelector<HTMLButtonElement>("#save-name");
   const requeueButton = root.querySelector<HTMLButtonElement>("#requeue-button");
@@ -183,9 +217,17 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const bonfire = root.querySelector<HTMLElement>("#multiplayer-bonfire");
   const sessionResult = root.querySelector<HTMLElement>("#multiplayer-session-result");
   const readout = root.querySelector<HTMLElement>("#multiplayer-readout");
+  const prodCooldown = root.querySelector<HTMLElement>("#multiplayer-prod-cooldown");
+  const prodWall = root.querySelector<HTMLElement>("#multiplayer-prod-wall");
+  const prodTurret = root.querySelector<HTMLElement>("#multiplayer-prod-turret");
+  const prodHeater = root.querySelector<HTMLElement>("#multiplayer-prod-heater");
 
   if (
     !viewport ||
+    !hero ||
+    !queuePanel ||
+    !debugPanel ||
+    !prodSkillStrip ||
     !guestNameInput ||
     !saveNameButton ||
     !requeueButton ||
@@ -219,7 +261,11 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     !preview ||
     !bonfire ||
     !sessionResult ||
-    !readout
+    !readout ||
+    !prodCooldown ||
+    !prodWall ||
+    !prodTurret ||
+    !prodHeater
   ) {
     throw new Error("Missing multiplayer UI nodes");
   }
@@ -230,7 +276,9 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     countdown,
     cooldown,
     cursor,
+    debugPanel,
     guestNameInput,
+    hero,
     hp,
     lifecycle,
     mode: sessionMode,
@@ -243,8 +291,14 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     playerBState,
     position,
     preview,
+    prodCooldown,
+    prodHeater,
+    prodSkillStrip,
+    prodTurret,
+    prodWall,
     projectiles,
     queueCount,
+    queuePanel,
     readout,
     requeueButton,
     result: sessionResult,
@@ -277,10 +331,14 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
         return ui.guestNameInput.value.trim() || storedName;
       })
     : createPreviewProvider();
+  let latestSnapshot: SessionSnapshot | null = null;
+
+  syncCombatSurfaceState();
 
   mountGameSession({
     autoConnect: false,
     onSnapshot: (snapshot) => {
+      latestSnapshot = snapshot;
       renderSessionHud(
         {
           actionButton: ui.requeueButton,
@@ -305,8 +363,18 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
         },
         presentDuelHud(snapshot)
       );
+      renderDuelSkillStrip(
+        {
+          cooldown: ui.prodCooldown,
+          heaterBeacon: ui.prodHeater,
+          snowmanTurret: ui.prodTurret,
+          wall: ui.prodWall
+        },
+        presentDuelSkillStrip(snapshot)
+      );
       ui.lifecycle.textContent = snapshot.match.lifecycle;
       renderPlayers(snapshot, ui.playerAName, ui.playerAState, ui.playerBName, ui.playerBState);
+      syncCombatSurfaceState();
     },
     provider,
     viewport: ui.viewport
@@ -314,6 +382,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
 
   provider.subscribeEvent((event) => {
     handleProviderEvent(event, ui);
+    syncCombatSurfaceState();
   });
 
   ui.saveNameButton.addEventListener("click", () => {
@@ -348,6 +417,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     ui.countdown.textContent = "--";
     ui.requeueButton.disabled = true;
     ui.readout.textContent = getMissingBackendReadout(missingReason);
+    syncCombatSurfaceState();
   }
 
   async function joinQueue() {
@@ -363,6 +433,19 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     } catch {
       ui.requeueButton.disabled = false;
     }
+  }
+
+  function syncCombatSurfaceState() {
+    const surfaceState = getMultiplayerUiState({
+      hasLiveSnapshot: latestSnapshot !== null,
+      hostname: window.location.hostname,
+      lifecycle: latestSnapshot?.match.lifecycle ?? null
+    });
+
+    ui.hero.hidden = !surfaceState.showHero;
+    ui.queuePanel.hidden = !surfaceState.showQueuePanel;
+    ui.debugPanel.hidden = !surfaceState.showDebugPanel;
+    ui.prodSkillStrip.hidden = !surfaceState.showProdSkillStrip;
   }
 }
 

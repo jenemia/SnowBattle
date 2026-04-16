@@ -1,4 +1,8 @@
-import type { SessionSnapshot } from "@snowbattle/shared";
+import {
+  getStructureMaxCount,
+  type BuildType,
+  type SessionSnapshot
+} from "@snowbattle/shared";
 
 export type SessionHudMode = "solo" | "duel";
 
@@ -45,6 +49,20 @@ export interface SessionHudElements {
   status: HTMLElement;
   structures: HTMLElement;
   time: HTMLElement;
+}
+
+export interface DuelSkillStripViewModel {
+  cooldownText: string;
+  heaterBeaconText: string;
+  snowmanTurretText: string;
+  wallText: string;
+}
+
+export interface DuelSkillStripElements {
+  cooldown: HTMLElement;
+  heaterBeacon: HTMLElement;
+  snowmanTurret: HTMLElement;
+  wall: HTMLElement;
 }
 
 export function presentSessionHud(
@@ -117,6 +135,27 @@ export function renderSessionHud(
     elements.actionButton.disabled = hud.actionDisabled;
     elements.actionButton.textContent = hud.actionText;
   }
+}
+
+export function presentDuelSkillStrip(
+  snapshot: SessionSnapshot
+): DuelSkillStripViewModel {
+  return {
+    cooldownText: `${(snapshot.localPlayer.buildCooldownRemaining / 1000).toFixed(2)}s`,
+    heaterBeaconText: `Heater ${getRemainingSkillCount(snapshot, "heater_beacon")}`,
+    snowmanTurretText: `Turret ${getRemainingSkillCount(snapshot, "snowman_turret")}`,
+    wallText: `Wall ${getRemainingSkillCount(snapshot, "wall")}`
+  };
+}
+
+export function renderDuelSkillStrip(
+  elements: DuelSkillStripElements,
+  strip: DuelSkillStripViewModel
+) {
+  elements.cooldown.textContent = strip.cooldownText;
+  elements.heaterBeacon.textContent = strip.heaterBeaconText;
+  elements.snowmanTurret.textContent = strip.snowmanTurretText;
+  elements.wall.textContent = strip.wallText;
 }
 
 function getModeText(snapshot: SessionSnapshot) {
@@ -211,3 +250,18 @@ const HUD_COPY: Record<SessionHudMode, SessionHudCopy> = {
     winReadout: "Round complete. Queue another local run whenever you want."
   }
 };
+
+function getRemainingSkillCount(
+  snapshot: SessionSnapshot,
+  buildType: BuildType
+) {
+  const activeOwnedCount = snapshot.structures.filter((structure) => {
+    return (
+      structure.enabled &&
+      structure.ownerSlot === snapshot.localPlayer.slot &&
+      structure.type === buildType
+    );
+  }).length;
+
+  return Math.max(0, getStructureMaxCount(buildType) - activeOwnedCount);
+}
