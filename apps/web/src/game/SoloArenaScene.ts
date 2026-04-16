@@ -24,6 +24,7 @@ interface RunnerParts {
   leftLeg: THREE.Mesh;
   rightArm: THREE.Mesh;
   rightLeg: THREE.Mesh;
+  snowCap: THREE.Mesh;
 }
 
 const CAMERA_HEIGHT = 34;
@@ -306,9 +307,14 @@ export class SoloArenaScene {
       bodyMaterial.color.lerp(new THREE.Color("#edf8ff"), snowBlend * 0.7);
       bodyMaterial.emissive.set(player.slot === "A" ? "#67d640" : "#a84cc8");
       headMaterial.color.set("#7cea4d").lerp(new THREE.Color("#ffffff"), snowBlend * 0.8);
+      runner.snowCap.visible = snowBlend > 0.05;
+      runner.snowCap.scale.setScalar(0.65 + snowBlend * 0.9);
+      runner.snowCap.position.y = 3.95 + snowBlend * 0.2;
       runner.group.position.set(player.x, 0.1, player.z);
       runner.group.rotation.y = player.facingAngle;
-      runner.group.scale.setScalar(player.slot === snapshot.localPlayer.slot ? 1 : 0.98);
+      runner.group.scale.setScalar(
+        (player.slot === snapshot.localPlayer.slot ? 1 : 0.98) + snowBlend * 0.03
+      );
       this.animateRunner(runner, player.snowLoad, player.buildCooldownRemaining);
     }
   }
@@ -427,6 +433,21 @@ export class SoloArenaScene {
     head.castShadow = true;
     group.add(head);
 
+    const snowCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.58, 10, 10),
+      new THREE.MeshStandardMaterial({
+        color: "#f6fdff",
+        emissive: "#d8f5ff",
+        emissiveIntensity: 0.22,
+        roughness: 0.82,
+        transparent: true
+      })
+    );
+    snowCap.position.set(0, 3.95, 0.18);
+    snowCap.scale.setScalar(0.65);
+    snowCap.visible = false;
+    group.add(snowCap);
+
     const limbMaterial = new THREE.MeshStandardMaterial({
       color: isLocal ? "#60cf3f" : "#ff82cf",
       roughness: 0.52
@@ -465,7 +486,8 @@ export class SoloArenaScene {
       leftArm,
       leftLeg,
       rightArm,
-      rightLeg
+      rightLeg,
+      snowCap
     };
   }
 

@@ -14,6 +14,9 @@ export function bootSoloPage(root: HTMLDivElement) {
         </p>
         <div class="hero-actions">
           <a class="secondary-link" href="./">Back to duel home</a>
+          <button class="secondary-link solo-reset" id="solo-reset" type="button" disabled>
+            Restart round
+          </button>
         </div>
       </section>
       <section class="arena">
@@ -103,6 +106,7 @@ export function bootSoloPage(root: HTMLDivElement) {
   const projectiles = root.querySelector<HTMLElement>("#solo-projectiles");
   const opponentHp = root.querySelector<HTMLElement>("#solo-opponent-hp");
   const bonfire = root.querySelector<HTMLElement>("#solo-bonfire");
+  const reset = root.querySelector<HTMLButtonElement>("#solo-reset");
   const result = root.querySelector<HTMLElement>("#solo-result");
   const snowLoad = root.querySelector<HTMLElement>("#solo-snow-load");
   const status = root.querySelector<HTMLElement>("#solo-status");
@@ -123,6 +127,7 @@ export function bootSoloPage(root: HTMLDivElement) {
     !projectiles ||
     !opponentHp ||
     !bonfire ||
+    !reset ||
     !result ||
     !snowLoad ||
     !status ||
@@ -134,56 +139,90 @@ export function bootSoloPage(root: HTMLDivElement) {
     throw new Error("Missing solo UI nodes");
   }
 
-  const scene = new SoloArenaScene(viewport);
-  const provider = new LocalSoloProvider();
-  const input = new SoloInputController(viewport, scene, provider);
+  let teardown: (() => void) | null = null;
 
-  scene.start();
-  provider.subscribe((snapshot) => {
-    scene.render(snapshot);
-    cooldown.textContent = `${(snapshot.localPlayer.buildCooldownRemaining / 1000).toFixed(2)}s`;
-    cursor.textContent = `${snapshot.hud.cursorX.toFixed(1)} / ${snapshot.hud.cursorZ.toFixed(1)}`;
-    build.textContent = snapshot.localPlayer.selectedBuild ?? "combat";
-    hp.textContent = `${Math.round(snapshot.localPlayer.hp)}`;
-    packedSnow.textContent = `${Math.round(snapshot.localPlayer.packedSnow)}`;
-    phase.textContent = snapshot.match.phase;
-    preview.textContent = snapshot.hud.buildPreviewValid ? "valid" : "blocked";
-    projectiles.textContent = String(snapshot.projectiles.length);
-    opponentHp.textContent = `${Math.round(snapshot.opponentPlayer.hp)}`;
-    bonfire.textContent = snapshot.match.centerBonfireState;
-    snowLoad.textContent = `${Math.round(snapshot.localPlayer.snowLoad)}`;
-    status.textContent =
-      snapshot.localPlayer.selectedBuild === null ? "Combat" : "Build";
-    mode.textContent =
-      snapshot.localPlayer.selectedBuild === null
-        ? snapshot.localPlayer.buildCooldownRemaining > 0
-          ? "Snowball cooling"
-          : "Throw ready"
-        : snapshot.hud.buildPreviewValid
-          ? "Placement valid"
-          : "Placement blocked";
-    structures.textContent = String(snapshot.structures.length);
-    time.textContent = `${(snapshot.match.timeRemainingMs / 1000).toFixed(1)}s`;
-    result.textContent = snapshot.hud.result
-      ? snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot
-        ? `Victory · ${snapshot.hud.result.reason}`
-        : snapshot.hud.result.winnerSlot === null
-          ? `Draw · ${snapshot.hud.result.reason}`
-          : `Defeat · ${snapshot.hud.result.reason}`
-      : "";
-    readout.textContent =
-      snapshot.hud.result
+  const mountSession = () => {
+    teardown?.();
+    viewport.innerHTML = "";
+
+    const scene = new SoloArenaScene(viewport);
+    const provider = new LocalSoloProvider();
+    const input = new SoloInputController(viewport, scene, provider);
+    const unsubscribe = provider.subscribe((snapshot) => {
+      scene.render(snapshot);
+      cooldown.textContent = `${(snapshot.localPlayer.buildCooldownRemaining / 1000).toFixed(2)}s`;
+      cursor.textContent = `${snapshot.hud.cursorX.toFixed(1)} / ${snapshot.hud.cursorZ.toFixed(1)}`;
+      build.textContent = snapshot.localPlayer.selectedBuild ?? "combat";
+      hp.textContent = `${Math.round(snapshot.localPlayer.hp)}`;
+      packedSnow.textContent = `${Math.round(snapshot.localPlayer.packedSnow)}`;
+      phase.textContent = snapshot.match.phase;
+      preview.textContent = snapshot.hud.buildPreviewValid ? "valid" : "blocked";
+      projectiles.textContent = String(snapshot.projectiles.length);
+      opponentHp.textContent = `${Math.round(snapshot.opponentPlayer.hp)}`;
+      bonfire.textContent = snapshot.match.centerBonfireState;
+      snowLoad.textContent = `${Math.round(snapshot.localPlayer.snowLoad)}`;
+      status.textContent =
+        snapshot.hud.result !== null
+          ? "Complete"
+          : snapshot.localPlayer.selectedBuild === null
+            ? "Combat"
+            : "Build";
+      mode.textContent =
+        snapshot.hud.result !== null
+          ? "Round resolved"
+          : snapshot.match.phase === "final_push"
+            ? "Final push · Builds locked"
+            : snapshot.match.phase === "whiteout"
+              ? "Whiteout · Stay in the ring"
+              : snapshot.localPlayer.selectedBuild === null
+                ? snapshot.localPlayer.buildCooldownRemaining > 0
+                  ? "Snowball cooling"
+                  : "Throw ready"
+                : snapshot.hud.buildPreviewValid
+                  ? "Placement valid"
+                  : "Placement blocked";
+      structures.textContent = String(snapshot.structures.length);
+      time.textContent = `${(snapshot.match.timeRemainingMs / 1000).toFixed(1)}s`;
+      result.textContent = snapshot.hud.result
         ? snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot
-          ? "Round complete. The local run resolved in your favor."
+          ? `Victory · ${snapshot.hud.result.reason}`
           : snapshot.hud.result.winnerSlot === null
-            ? "Round complete. The local run ended in a draw."
-            : "Round complete. Reset the page or keep iterating on the local duel."
-        : snapshot.localPlayer.selectedBuild === null
-        ? "Combat mode. Aim with the cursor and click to throw."
-        : snapshot.hud.buildPreviewValid
-          ? `Build ${snapshot.localPlayer.selectedBuild}. Click to place.`
-          : `Build ${snapshot.localPlayer.selectedBuild}. Move to a valid spot.`;
+            ? `Draw · ${snapshot.hud.result.reason}`
+            : `Defeat · ${snapshot.hud.result.reason}`
+        : "";
+      reset.disabled = snapshot.hud.result === null;
+      readout.textContent = snapshot.hud.result
+        ? snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot
+          ? "Round complete. Queue another local run whenever you want."
+          : snapshot.hud.result.winnerSlot === null
+            ? "Round complete. The solo rules engine resolved a draw."
+            : "Round complete. Hit restart to iterate on the duel again."
+        : snapshot.match.phase === "final_push"
+          ? "Final push is active. Builds are locked, so finish the duel in the ring."
+          : snapshot.match.phase === "whiteout"
+            ? "Whiteout is closing in. Use the ring and bonfire timing to stay alive."
+            : snapshot.localPlayer.selectedBuild === null
+              ? "Combat mode. Aim with the cursor and click to throw."
+              : snapshot.hud.buildPreviewValid
+                ? `Build ${snapshot.localPlayer.selectedBuild}. Click to place.`
+                : `Build ${snapshot.localPlayer.selectedBuild}. Move to a valid spot.`;
+    });
+
+    scene.start();
+    provider.connect();
+    input.connect();
+
+    teardown = () => {
+      unsubscribe();
+      input.disconnect();
+      provider.disconnect();
+      scene.dispose();
+    };
+  };
+
+  reset.addEventListener("click", () => {
+    mountSession();
   });
-  provider.connect();
-  input.connect();
+
+  mountSession();
 }
