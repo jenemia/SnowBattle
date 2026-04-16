@@ -29,7 +29,10 @@ export class LocalSoloProvider implements GameSessionProvider {
     this.emit();
     this.emitEvent({
       type: "status",
-      message: "Local solo provider connected."
+      code: "connected",
+      detail: "local solo loop active",
+      message: "Local solo provider connected.",
+      stage: "connect"
     });
     this.animationFrame = window.requestAnimationFrame(this.tick);
   }
@@ -43,7 +46,10 @@ export class LocalSoloProvider implements GameSessionProvider {
     window.cancelAnimationFrame(this.animationFrame);
     this.emitEvent({
       type: "status",
-      message: "Local solo provider disconnected."
+      code: "disconnected",
+      detail: "local solo loop stopped",
+      message: "Local solo provider disconnected.",
+      stage: "room_leave"
     });
   }
 

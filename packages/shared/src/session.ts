@@ -112,9 +112,31 @@ export interface SessionSnapshot {
   hud: SessionHudSnapshot;
 }
 
+export type SessionStatusCode =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "queued"
+  | "match_found"
+  | "countdown"
+  | "requeue"
+  | "disconnected"
+  | "error";
+
+export type SessionStatusStage =
+  | "connect"
+  | "matchmake"
+  | "room_join"
+  | "room_leave";
+
 export interface SessionStatusEvent {
   type: "status";
+  attempt?: number;
+  code: SessionStatusCode;
+  detail?: string;
   message: string;
+  serverUrl?: string;
+  stage?: SessionStatusStage;
 }
 
 export interface SessionQueueEvent {

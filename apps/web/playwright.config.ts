@@ -5,10 +5,12 @@ const webDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 export default defineConfig({
+  fullyParallel: false,
   testDir: "./e2e",
   timeout: 30_000,
+  workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: "http://localhost:4173",
     headless: true,
     trace: "retain-on-failure",
     viewport: {
@@ -18,18 +20,18 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run start --workspace @snowbattle/server",
+      command: "npm run start:e2e --workspace @snowbattle/server",
       cwd: repoRoot,
       reuseExistingServer: true,
       timeout: 120_000,
-      url: "http://127.0.0.1:2567/health"
+      url: "http://localhost:2567/health"
     },
     {
       command: "npm run preview",
       cwd: webDir,
       reuseExistingServer: true,
       timeout: 120_000,
-      url: "http://127.0.0.1:4173"
+      url: "http://localhost:4173"
     }
   ]
 });

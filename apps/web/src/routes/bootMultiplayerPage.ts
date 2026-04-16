@@ -59,6 +59,9 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
                 <strong id="lifecycle" data-testid="multiplayer-lifecycle">waiting</strong>
               </div>
             </div>
+            <div class="solo-debug" data-testid="multiplayer-status-code">idle</div>
+            <div class="solo-debug" data-testid="multiplayer-status-stage">connect</div>
+            <div class="solo-debug" data-testid="multiplayer-status-detail">booting</div>
             <div class="result" id="result-banner" data-testid="multiplayer-result"></div>
             <button class="primary-button" id="requeue-button" disabled>Requeue</button>
           </div>
@@ -101,6 +104,9 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const countdown = root.querySelector<HTMLElement>("#countdown");
   const lifecycle = root.querySelector<HTMLElement>("#lifecycle");
   const resultBanner = root.querySelector<HTMLElement>("#result-banner");
+  const statusCode = root.querySelector<HTMLElement>("[data-testid='multiplayer-status-code']");
+  const statusStage = root.querySelector<HTMLElement>("[data-testid='multiplayer-status-stage']");
+  const statusDetail = root.querySelector<HTMLElement>("[data-testid='multiplayer-status-detail']");
   const playerAName = root.querySelector<HTMLElement>("#player-a-name");
   const playerAState = root.querySelector<HTMLElement>("#player-a-state");
   const playerBName = root.querySelector<HTMLElement>("#player-b-name");
@@ -117,6 +123,9 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     !countdown ||
     !lifecycle ||
     !resultBanner ||
+    !statusCode ||
+    !statusStage ||
+    !statusDetail ||
     !playerAName ||
     !playerAState ||
     !playerBName ||
@@ -138,6 +147,9 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     resultBanner,
     roomId,
     saveNameButton,
+    statusCode,
+    statusDetail,
+    statusStage,
     statusPill,
     viewport
   };
@@ -223,10 +235,6 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     try {
       await provider.connect();
     } catch {
-      ui.statusPill.textContent = "Backend connection failed";
-      ui.resultBanner.textContent =
-        "The web client loaded, but the realtime game server is unreachable.";
-      ui.resultBanner.classList.add("danger");
       ui.requeueButton.disabled = false;
     }
   }
@@ -379,12 +387,31 @@ function handleProviderEvent(
     lifecycle: HTMLElement;
     queueCount: HTMLElement;
     requeueButton: HTMLButtonElement;
+    resultBanner: HTMLElement;
     roomId: HTMLElement;
+    statusCode: HTMLElement;
+    statusDetail: HTMLElement;
+    statusStage: HTMLElement;
     statusPill: HTMLElement;
   }
 ) {
   if (event.type === "status") {
     ui.statusPill.textContent = event.message;
+    ui.statusCode.textContent = event.code;
+    ui.statusStage.textContent = event.stage ?? "none";
+    ui.statusDetail.textContent = event.detail ?? event.serverUrl ?? "none";
+
+    if (event.code === "error") {
+      ui.resultBanner.textContent = event.detail
+        ? `Backend connection failed: ${event.detail}`
+        : "Backend connection failed.";
+      ui.resultBanner.classList.add("danger");
+      return;
+    }
+
+    if (event.code !== "disconnected") {
+      ui.resultBanner.classList.remove("danger");
+    }
     return;
   }
 
@@ -400,6 +427,7 @@ function handleProviderEvent(
 
   if (event.type === "match_found") {
     ui.roomId.textContent = `Room ${event.roomId}`;
+    ui.countdown.textContent = `${Math.ceil(event.countdownFrom / 1000)}s`;
     return;
   }
 
@@ -438,7 +466,7 @@ function resolveServerUrl() {
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";
 
-  return isLocalHost ? `ws://${window.location.hostname}:2567` : "";
+  return isLocalHost ? "ws://localhost:2567" : "";
 }
 
 function normalizeMovementKey(key: string) {

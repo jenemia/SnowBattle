@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build --workspace @snowbattle/shared && tsc -p tsconfig.json --noEmit && vite build && node ./scripts/create-spa-fallback.mjs",
-    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "preview": "vite preview --host localhost --port 4173",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "npm run build --workspace @snowbattle/shared && vitest run --passWithNoTests",

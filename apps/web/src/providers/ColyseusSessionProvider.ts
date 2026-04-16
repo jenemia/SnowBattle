@@ -24,7 +24,7 @@ export class ColyseusSessionProvider implements GameSessionProvider {
   private room: RoomConnection | null = null;
 
   constructor(
-    serverUrl: string,
+    private readonly serverUrl: string,
     private readonly getGuestName: () => string
   ) {
     this.client = new Client(serverUrl);
@@ -60,7 +60,11 @@ export class ColyseusSessionProvider implements GameSessionProvider {
     await room.leave();
     this.emitEvent({
       type: "status",
-      message: "Connection closed. Requeue to jump back in."
+      code: "disconnected",
+      detail: "manual leave requested",
+      message: "Connection closed. Requeue to jump back in.",
+      serverUrl: this.serverUrl,
+      stage: "room_leave"
     });
   }
 
@@ -96,19 +100,68 @@ export class ColyseusSessionProvider implements GameSessionProvider {
     const guestName = this.getGuestName().trim();
     this.emitEvent({
       type: "status",
-      message: "Searching for a duel..."
+      attempt: 1,
+      code: "connecting",
+      detail: `connecting to ${this.serverUrl}`,
+      message: "Searching for a duel...",
+      serverUrl: this.serverUrl,
+      stage: "connect"
     });
 
-    const room = await this.client.joinOrCreate("duel", { guestName });
-    this.room = room;
-    this.bindRoom(room);
-    room.send("queue:join", { guestName });
-    room.send("player:ready", { ready: true });
-    this.startHeartbeat();
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        this.emitEvent({
+          type: "status",
+          attempt: attempt + 1,
+          code: "connecting",
+          detail: `joinOrCreate duel via ${this.serverUrl}`,
+          message: `Connecting attempt ${attempt + 1}/5`,
+          serverUrl: this.serverUrl,
+          stage: "matchmake"
+        });
+        const room = await this.client.joinOrCreate("duel", { guestName });
+        this.room = room;
+        this.bindRoom(room);
+        room.send("queue:join", { guestName });
+        room.send("player:ready", { ready: true });
+        this.startHeartbeat();
+        this.emitEvent({
+          type: "status",
+          code: "connected",
+          detail: `room ${room.roomId} joined and ready sent`,
+          message: "Connected. Waiting for snowbound contact.",
+          serverUrl: this.serverUrl,
+          stage: "room_join"
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+        this.emitEvent({
+          type: "status",
+          attempt: attempt + 1,
+          code: "connecting",
+          detail: `joinOrCreate failed: ${formatError(error)}`,
+          message: `Retrying duel connection (${attempt + 1}/5)`,
+          serverUrl: this.serverUrl,
+          stage: "matchmake"
+        });
+        await wait(250 * (attempt + 1));
+      }
+    }
+
+    const failure = lastError ?? new Error("Unable to join duel room");
     this.emitEvent({
       type: "status",
-      message: "Connected. Waiting for snowbound contact."
+      attempt: 5,
+      code: "error",
+      detail: formatError(failure),
+      message: "Backend connection failed",
+      serverUrl: this.serverUrl,
+      stage: "matchmake"
     });
+    throw failure;
   }
 
   private bindRoom(room: RoomConnection) {
@@ -121,7 +174,11 @@ export class ColyseusSessionProvider implements GameSessionProvider {
       });
       this.emitEvent({
         type: "status",
-        message: `Queued · Position ${message.position}`
+        code: "queued",
+        detail: `room ${message.roomId} position ${message.position}`,
+        message: `Queued · Position ${message.position}`,
+        serverUrl: this.serverUrl,
+        stage: "room_join"
       });
     });
 
@@ -135,11 +192,23 @@ export class ColyseusSessionProvider implements GameSessionProvider {
       });
       this.emitEvent({
         type: "status",
-        message: `Match found · Slot ${message.slot}`
+        code: "match_found",
+        detail: `room ${message.roomId} vs ${message.opponentGuestName}`,
+        message: `Match found · Slot ${message.slot}`,
+        serverUrl: this.serverUrl,
+        stage: "room_join"
       });
     });
 
     room.onMessage("server:countdown", (message: CountdownMessage) => {
+      this.emitEvent({
+        type: "status",
+        code: "countdown",
+        detail: `${message.remainingMs}ms remaining`,
+        message: `Countdown ${Math.ceil(message.remainingMs / 1000)}s`,
+        serverUrl: this.serverUrl,
+        stage: "room_join"
+      });
       this.emitEvent({
         type: "countdown",
         remainingMs: message.remainingMs,
@@ -161,7 +230,22 @@ export class ColyseusSessionProvider implements GameSessionProvider {
       });
       this.emitEvent({
         type: "status",
-        message: message.message
+        code: "requeue",
+        detail: message.message,
+        message: message.message,
+        serverUrl: this.serverUrl,
+        stage: "room_join"
+      });
+    });
+
+    room.onError((code, message) => {
+      this.emitEvent({
+        type: "status",
+        code: "error",
+        detail: `room error ${code}: ${message}`,
+        message: "Backend connection failed",
+        serverUrl: this.serverUrl,
+        stage: "room_join"
       });
     });
 
@@ -170,7 +254,11 @@ export class ColyseusSessionProvider implements GameSessionProvider {
       this.room = null;
       this.emitEvent({
         type: "status",
-        message: "Connection closed. Requeue to jump back in."
+        code: "disconnected",
+        detail: "room.onLeave received",
+        message: "Connection closed. Requeue to jump back in.",
+        serverUrl: this.serverUrl,
+        stage: "room_leave"
       });
     });
   }
@@ -203,5 +291,27 @@ export class ColyseusSessionProvider implements GameSessionProvider {
     for (const listener of this.eventListeners) {
       listener(event);
     }
+  }
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function formatError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
   }
 }
