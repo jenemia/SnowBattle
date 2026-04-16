@@ -58,21 +58,7 @@ export class SoloInputController {
       return;
     }
 
-    const movement = getNormalizedMovement(this.pressedKeys);
-    const worldPoint = this.pointerActive
-      ? this.scene.screenPointToWorld(this.pointerClientX, this.pointerClientY)
-      : null;
-
-    this.provider.send({
-      type: "input:update",
-      payload: {
-        aimX: worldPoint?.x ?? 0,
-        aimY: worldPoint?.z ?? 0,
-        moveX: movement.x,
-        moveY: movement.y,
-        pointerActive: worldPoint !== null
-      }
-    });
+    this.sendInputUpdate();
 
     this.animationFrame = window.requestAnimationFrame(this.tick);
   };
@@ -141,6 +127,7 @@ export class SoloInputController {
     this.pointerActive = true;
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
+    this.sendInputUpdate();
     this.provider.send({ type: "action:primary" });
   };
 
@@ -153,4 +140,22 @@ export class SoloInputController {
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
   };
+
+  private sendInputUpdate() {
+    const movement = getNormalizedMovement(this.pressedKeys);
+    const worldPoint = this.pointerActive
+      ? this.scene.screenPointToWorld(this.pointerClientX, this.pointerClientY)
+      : null;
+
+    this.provider.send({
+      type: "input:update",
+      payload: {
+        aimX: worldPoint?.x ?? 0,
+        aimY: worldPoint?.z ?? 0,
+        moveX: movement.x,
+        moveY: movement.y,
+        pointerActive: worldPoint !== null
+      }
+    });
+  }
 }
