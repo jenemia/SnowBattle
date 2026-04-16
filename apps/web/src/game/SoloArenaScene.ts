@@ -2,7 +2,13 @@ import * as THREE from "three";
 
 import {
   ARENA_HALF_EXTENT,
-  SOLO_HEATER_BEACON_RADIUS
+  SOLO_HEATER_BEACON_HP,
+  SOLO_HEATER_BEACON_RADIUS,
+  SOLO_SNOWMAN_TURRET_HP,
+  SOLO_STRUCTURE_COLLISION_RADIUS,
+  SOLO_WALL_HALF_DEPTH,
+  SOLO_WALL_HALF_WIDTH,
+  SOLO_WALL_HP
 } from "@snowbattle/shared";
 import type {
   BuildType,
@@ -69,7 +75,7 @@ export class SoloArenaScene {
       transparent: true
     });
     this.buildPreview = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 3, 0.8),
+      new THREE.BoxGeometry(SOLO_WALL_HALF_WIDTH * 2, 3, SOLO_WALL_HALF_DEPTH * 2),
       this.buildPreviewMaterial
     );
     this.buildPreview.visible = false;
@@ -353,6 +359,7 @@ export class SoloArenaScene {
 
       object.position.set(structure.x, 0, structure.z);
       object.visible = structure.enabled;
+      this.updateStructureVisual(object, structure);
     }
 
     for (const [id, object] of this.structureMeshes) {
@@ -486,7 +493,11 @@ export class SoloArenaScene {
   private createStructureMesh(structure: SessionStructureSnapshot) {
     if (structure.type === "wall") {
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(3, 3, 0.8),
+        new THREE.BoxGeometry(
+          SOLO_WALL_HALF_WIDTH * 2,
+          3,
+          SOLO_WALL_HALF_DEPTH * 2
+        ),
         new THREE.MeshStandardMaterial({
           color: "#79e1ff",
           emissive: "#7be4ff",
@@ -525,8 +536,8 @@ export class SoloArenaScene {
     const group = new THREE.Group();
     const base = new THREE.Mesh(
       new THREE.CylinderGeometry(
-        SOLO_HEATER_BEACON_RADIUS * 0.34,
-        SOLO_HEATER_BEACON_RADIUS * 0.42,
+        SOLO_STRUCTURE_COLLISION_RADIUS * 0.7,
+        SOLO_STRUCTURE_COLLISION_RADIUS * 1.05,
         1,
         12
       ),
@@ -561,7 +572,11 @@ export class SoloArenaScene {
     this.buildPreview.geometry.dispose();
 
     if (buildType === "wall") {
-      this.buildPreview.geometry = new THREE.BoxGeometry(3, 3, 0.8);
+      this.buildPreview.geometry = new THREE.BoxGeometry(
+        SOLO_WALL_HALF_WIDTH * 2,
+        3,
+        SOLO_WALL_HALF_DEPTH * 2
+      );
       return;
     }
 
@@ -571,6 +586,30 @@ export class SoloArenaScene {
     }
 
     this.buildPreview.geometry = new THREE.CylinderGeometry(1, 1.4, 1.2, 16);
+  }
+
+  private updateStructureVisual(
+    object: THREE.Object3D,
+    structure: SessionStructureSnapshot
+  ) {
+    const maxHp = getStructureMaxHp(structure.type);
+    const ratio = Math.max(0.25, structure.hp / maxHp);
+
+    object.scale.y = ratio;
+
+    object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) {
+        return;
+      }
+
+      const material = child.material;
+      if (!(material instanceof THREE.MeshStandardMaterial)) {
+        return;
+      }
+
+      material.emissiveIntensity =
+        structure.type === "heater_beacon" ? 0.45 + (1 - ratio) * 0.2 : 0.25 + (1 - ratio) * 0.3;
+    });
   }
 
   private readonly handleResize = () => {
@@ -585,4 +624,16 @@ export class SoloArenaScene {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getStructureMaxHp(buildType: BuildType) {
+  if (buildType === "wall") {
+    return SOLO_WALL_HP;
+  }
+
+  if (buildType === "snowman_turret") {
+    return SOLO_SNOWMAN_TURRET_HP;
+  }
+
+  return SOLO_HEATER_BEACON_HP;
 }
