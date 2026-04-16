@@ -120,4 +120,68 @@ describe("SoloRulesEngine", () => {
       reason: "timeout"
     });
   });
+
+  it("places limited structures and spends packed snow", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    engine.receiveCommand("A", {
+      type: "input:update",
+      payload: {
+        aimX: 0,
+        aimY: 5,
+        moveX: 0,
+        moveY: 0,
+        pointerActive: true
+      }
+    });
+    engine.receiveCommand("A", {
+      type: "build:select",
+      payload: { buildType: "wall" }
+    });
+    engine.receiveCommand("A", { type: "action:primary" });
+    engine.tick(50);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.structures).toHaveLength(1);
+    expect(snapshot.structures[0]?.type).toBe("wall");
+    expect(snapshot.localPlayer.packedSnow).toBeLessThan(100);
+  });
+
+  it("awards the center bonfire reward after channeling", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    engine.receiveCommand("A", {
+      type: "input:update",
+      payload: {
+        aimX: 0,
+        aimY: 0,
+        moveX: 0,
+        moveY: -1,
+        pointerActive: true
+      }
+    });
+
+    for (let step = 0; step < 25; step += 1) {
+      engine.tick(50);
+    }
+
+    engine.receiveCommand("A", {
+      type: "input:update",
+      payload: {
+        aimX: 0,
+        aimY: 0,
+        moveX: 0,
+        moveY: 0,
+        pointerActive: true
+      }
+    });
+
+    for (let step = 0; step < 1_540; step += 1) {
+      engine.tick(50);
+    }
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.match.centerBonfireState).toBe("claimed");
+    expect(snapshot.localPlayer.packedSnow).toBe(100);
+  });
 });
