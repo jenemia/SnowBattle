@@ -45,7 +45,7 @@ export function getMultiplayerUiState(
 
   const isLocalHost = isLocalMultiplayerHost(input.hostname);
   return {
-    showDebugPanel: isLocalHost,
+    showDebugPanel: false,
     showHero: false,
     showProdSkillStrip: !isLocalHost,
     showQueuePanel: false

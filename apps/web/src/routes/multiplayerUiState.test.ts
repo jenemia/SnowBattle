@@ -35,7 +35,7 @@ describe("getMultiplayerUiState", () => {
     }
   });
 
-  it("shows the local debug panel during live matches on localhost", () => {
+  it("keeps the right debug panel hidden during live matches on localhost", () => {
     expect(
       getMultiplayerUiState({
         hasLiveSnapshot: true,
@@ -43,7 +43,7 @@ describe("getMultiplayerUiState", () => {
         lifecycle: "in_match"
       })
     ).toEqual({
-      showDebugPanel: true,
+      showDebugPanel: false,
       showHero: false,
       showProdSkillStrip: false,
       showQueuePanel: false
