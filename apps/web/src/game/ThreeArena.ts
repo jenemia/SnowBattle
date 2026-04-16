@@ -1,16 +1,22 @@
 import * as THREE from "three";
 
-import type { PlayerSnapshot, ProjectileSnapshot, StateSnapshotMessage } from "@snowbattle/shared";
+import {
+  ARENA_HALF_EXTENT,
+  type SessionPlayerSnapshot,
+  type SessionProjectileSnapshot,
+  type SessionSnapshot,
+  type SlotId
+} from "@snowbattle/shared";
 
 export class ThreeArena {
+  private readonly camera = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
+  private readonly playerMeshes = new Map<SlotId, THREE.Group>();
+  private readonly projectileMeshes = new Map<string, THREE.Mesh>();
+  private readonly raycaster = new THREE.Raycaster();
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
-  private readonly clock = new THREE.Clock();
-  private readonly playerMeshes = new Map<string, THREE.Group>();
-  private readonly projectileMeshes = new Map<string, THREE.Mesh>();
-  private localSessionId: string | null = null;
-  private state: StateSnapshotMessage | null = null;
+  private readonly screenNdc = new THREE.Vector2();
+  private snapshot: SessionSnapshot | null = null;
   private running = false;
 
   constructor(private readonly mount: HTMLElement) {
@@ -25,14 +31,38 @@ export class ThreeArena {
     window.addEventListener("resize", this.handleResize);
   }
 
-  setLocalSessionId(sessionId: string | null) {
-    this.localSessionId = sessionId;
+  applySnapshot(snapshot: SessionSnapshot) {
+    this.snapshot = snapshot;
+    this.syncPlayers([snapshot.localPlayer, snapshot.opponentPlayer]);
+    this.syncProjectiles(snapshot.projectiles);
   }
 
-  applyState(state: StateSnapshotMessage) {
-    this.state = state;
-    this.syncPlayers(state.players);
-    this.syncProjectiles(state.projectiles);
+  screenPointToWorld(clientX: number, clientY: number) {
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return null;
+    }
+
+    this.screenNdc.x = ((clientX - bounds.left) / bounds.width) * 2 - 1;
+    this.screenNdc.y = -((clientY - bounds.top) / bounds.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.screenNdc, this.camera);
+
+    const { direction, origin } = this.raycaster.ray;
+
+    if (Math.abs(direction.y) < 1e-6) {
+      return null;
+    }
+
+    const t = -origin.y / direction.y;
+    if (t < 0) {
+      return null;
+    }
+
+    return {
+      x: clamp(origin.x + direction.x * t, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT),
+      z: clamp(origin.z + direction.z * t, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT)
+    };
   }
 
   start() {
@@ -90,20 +120,20 @@ export class ThreeArena {
     this.scene.add(grid);
   }
 
-  private syncPlayers(players: PlayerSnapshot[]) {
-    const nextIds = new Set(players.map((player) => player.sessionId));
+  private syncPlayers(players: SessionPlayerSnapshot[]) {
+    const nextIds = new Set(players.map((player) => player.slot));
 
     for (const player of players) {
-      let group = this.playerMeshes.get(player.sessionId);
+      let group = this.playerMeshes.get(player.slot);
 
       if (!group) {
         group = this.createPlayerMesh(player);
-        this.playerMeshes.set(player.sessionId, group);
+        this.playerMeshes.set(player.slot, group);
         this.scene.add(group);
       }
 
-      group.position.set(player.x, 0.65, player.y);
-      group.rotation.y = -player.angle;
+      group.position.set(player.x, 0.65, player.z);
+      group.rotation.y = -player.facingAngle;
 
       const body = group.children[0] as THREE.Mesh;
       const head = group.children[1] as THREE.Mesh;
@@ -114,15 +144,15 @@ export class ThreeArena {
       headMaterial.color.set(player.ready ? "#f4ffff" : "#8ea9b8");
     }
 
-    for (const [sessionId, mesh] of this.playerMeshes) {
-      if (!nextIds.has(sessionId)) {
+    for (const [slot, mesh] of this.playerMeshes) {
+      if (!nextIds.has(slot)) {
         this.scene.remove(mesh);
-        this.playerMeshes.delete(sessionId);
+        this.playerMeshes.delete(slot);
       }
     }
   }
 
-  private syncProjectiles(projectiles: ProjectileSnapshot[]) {
+  private syncProjectiles(projectiles: SessionProjectileSnapshot[]) {
     const nextIds = new Set(projectiles.map((projectile) => projectile.id));
 
     for (const projectile of projectiles) {
@@ -130,7 +160,7 @@ export class ThreeArena {
 
       if (!mesh) {
         mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(projectile.radius, 16, 16),
+          new THREE.SphereGeometry(0.38, 16, 16),
           new THREE.MeshStandardMaterial({
             color: projectile.ownerSlot === "A" ? "#73e0ff" : "#ffc0f0",
             emissive: projectile.ownerSlot === "A" ? "#73e0ff" : "#ffc0f0",
@@ -141,7 +171,7 @@ export class ThreeArena {
         this.scene.add(mesh);
       }
 
-      mesh.position.set(projectile.x, 0.7, projectile.y);
+      mesh.position.set(projectile.x, 0.7, projectile.z);
     }
 
     for (const [projectileId, mesh] of this.projectileMeshes) {
@@ -152,7 +182,7 @@ export class ThreeArena {
     }
   }
 
-  private createPlayerMesh(player: PlayerSnapshot) {
+  private createPlayerMesh(player: SessionPlayerSnapshot) {
     const group = new THREE.Group();
     const body = new THREE.Mesh(
       new THREE.CylinderGeometry(0.95, 1.1, 1.2, 16),
@@ -187,26 +217,16 @@ export class ThreeArena {
   }
 
   private render() {
-    const state = this.state;
+    const snapshot = this.snapshot;
 
-    if (state) {
-      const focusPlayer =
-        state.players.find((player) => player.sessionId === this.localSessionId) ??
-        state.players[0];
-
-      if (focusPlayer) {
-        const idealPosition = new THREE.Vector3(
-          focusPlayer.x,
-          22,
-          focusPlayer.y + 15
-        );
-        this.camera.position.lerp(idealPosition, 0.08);
-        this.camera.lookAt(focusPlayer.x, 0, focusPlayer.y);
-      }
+    if (snapshot) {
+      const focusPlayer = snapshot.localPlayer;
+      const idealPosition = new THREE.Vector3(focusPlayer.x, 22, focusPlayer.z + 15);
+      this.camera.position.lerp(idealPosition, 0.08);
+      this.camera.lookAt(focusPlayer.x, 0, focusPlayer.z);
     }
 
     this.renderer.render(this.scene, this.camera);
-    this.clock.getElapsedTime();
   }
 
   private readonly handleResize = () => {
@@ -217,4 +237,8 @@ export class ThreeArena {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
   };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }

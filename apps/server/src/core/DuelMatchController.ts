@@ -1,38 +1,20 @@
 import {
-  ARENA_HALF_EXTENT,
   COUNTDOWN_MS,
-  FIRE_COOLDOWN_MS,
-  MATCH_DURATION_MS,
-  PLAYER_SPEED,
-  PROJECTILE_SPEED,
-  PROJECTILE_TTL_MS
-} from "@snowbattle/shared";
-import type {
-  MatchLifecycle,
-  MatchResultMessage,
-  MatchResultReason,
-  PlayerSnapshot,
-  ProjectileSnapshot,
-  SlotId
+  SoloRulesEngine,
+  type MatchLifecycle,
+  type MatchResultMessage,
+  type MatchResultReason,
+  type SessionCommand,
+  type SessionSnapshot,
+  type SlotId
 } from "@snowbattle/shared";
 
-interface PlayerInputState {
-  sequence: number;
-  moveX: number;
-  moveY: number;
-  pointerAngle: number;
-  fire: boolean;
-}
-
-interface InternalPlayer extends PlayerSnapshot {
-  fireCooldownEndsAt: number;
-  input: PlayerInputState;
-}
-
-interface InternalProjectile extends ProjectileSnapshot {
-  vx: number;
-  vy: number;
-  expiresAt: number;
+interface PlayerState {
+  connected: boolean;
+  guestName: string;
+  ready: boolean;
+  sessionId: string;
+  slot: SlotId;
 }
 
 interface AddPlayerOptions {
@@ -40,27 +22,11 @@ interface AddPlayerOptions {
   sessionId: string;
 }
 
-const DEFAULT_INPUT: PlayerInputState = {
-  sequence: 0,
-  moveX: 0,
-  moveY: 0,
-  pointerAngle: 0,
-  fire: false
-};
-
-const SLOT_SPAWNS: Record<SlotId, { x: number; y: number }> = {
-  A: { x: -10, y: 0 },
-  B: { x: 10, y: 0 }
-};
-
 export class DuelMatchController {
-  private readonly players = new Map<string, InternalPlayer>();
-  private readonly projectiles = new Map<string, InternalProjectile>();
-  private projectileCounter = 0;
   private countdownEndsAt: number | null = null;
+  private engine: SoloRulesEngine | null = null;
+  private readonly players = new Map<string, PlayerState>();
   private result: MatchResultMessage | null = null;
-  private startedAt: number | null = null;
-  private matchEndsAt: number | null = null;
 
   lifecycle: MatchLifecycle = "waiting";
 
@@ -73,24 +39,16 @@ export class DuelMatchController {
       throw new Error("Room is already full");
     }
 
-    const spawn = SLOT_SPAWNS[slot];
-    const player: InternalPlayer = {
-      sessionId,
-      slot,
-      guestName: guestName?.trim() || `Rider-${slot}`,
-      x: spawn.x,
-      y: spawn.y,
-      angle: slot === "A" ? 0 : Math.PI,
-      hp: 1,
-      ready: false,
+    const player: PlayerState = {
       connected: true,
-      fireCooldownEndsAt: 0,
-      input: { ...DEFAULT_INPUT }
+      guestName: guestName?.trim() || `Rider-${slot}`,
+      ready: false,
+      sessionId,
+      slot
     };
 
     this.players.set(sessionId, player);
     this.result = null;
-
     return player;
   }
 
@@ -110,38 +68,24 @@ export class DuelMatchController {
     }
   }
 
-  receiveInput(
-    sessionId: string,
-    payload: Extract<
-      Parameters<typeof this.handleMessage>[1],
-      { type: "player:input"; payload: PlayerInputState }
-    >["payload"]
-  ) {
+  receiveCommand(sessionId: string, command: SessionCommand) {
+    if (this.lifecycle !== "in_match" || !this.engine) {
+      return;
+    }
+
     const player = this.players.get(sessionId);
 
     if (!player) {
       return;
     }
 
-    player.input = payload;
-    player.angle = payload.pointerAngle;
+    this.engine.receiveCommand(player.slot, command);
   }
 
-  handleMessage(
+  removePlayer(
     sessionId: string,
-    message:
-      | { type: "player:ready"; payload: { ready: boolean } }
-      | { type: "player:input"; payload: PlayerInputState }
+    reason: Extract<MatchResultReason, "forfeit" | "disconnect"> = "forfeit"
   ) {
-    if (message.type === "player:ready") {
-      this.setReady(sessionId, message.payload.ready);
-      return;
-    }
-
-    this.receiveInput(sessionId, message.payload);
-  }
-
-  removePlayer(sessionId: string) {
     const removed = this.players.get(sessionId);
 
     if (!removed) {
@@ -158,7 +102,7 @@ export class DuelMatchController {
     if (this.lifecycle === "in_match") {
       const remaining = this.getPlayers()[0] ?? null;
       this.finishMatch({
-        reason: "forfeit",
+        reason,
         winnerSlot: remaining?.slot ?? null
       });
 
@@ -209,82 +153,33 @@ export class DuelMatchController {
 
       if (this.countdownEndsAt && now >= this.countdownEndsAt) {
         this.lifecycle = "in_match";
-        this.startedAt = now;
-        this.matchEndsAt = now + MATCH_DURATION_MS;
-      }
-
-      return;
-    }
-
-    if (this.lifecycle !== "in_match") {
-      return;
-    }
-
-    const deltaSeconds = deltaMs / 1000;
-
-    for (const player of this.players.values()) {
-      const magnitude = Math.hypot(player.input.moveX, player.input.moveY) || 1;
-      const moveX = player.input.moveX / magnitude;
-      const moveY = player.input.moveY / magnitude;
-
-      player.x = clamp(
-        player.x + moveX * PLAYER_SPEED * deltaSeconds,
-        -ARENA_HALF_EXTENT,
-        ARENA_HALF_EXTENT
-      );
-      player.y = clamp(
-        player.y + moveY * PLAYER_SPEED * deltaSeconds,
-        -ARENA_HALF_EXTENT,
-        ARENA_HALF_EXTENT
-      );
-
-      if (player.input.fire && now >= player.fireCooldownEndsAt) {
-        player.fireCooldownEndsAt = now + FIRE_COOLDOWN_MS;
-        this.spawnProjectile(player, now);
-      }
-
-      player.input.fire = false;
-    }
-
-    for (const projectile of this.projectiles.values()) {
-      projectile.x += projectile.vx * deltaSeconds;
-      projectile.y += projectile.vy * deltaSeconds;
-
-      if (
-        projectile.expiresAt <= now ||
-        Math.abs(projectile.x) > ARENA_HALF_EXTENT + 4 ||
-        Math.abs(projectile.y) > ARENA_HALF_EXTENT + 4
-      ) {
-        this.projectiles.delete(projectile.id);
-        continue;
-      }
-
-      const target = this.getPlayers().find(
-        (player) => player.slot !== projectile.ownerSlot
-      );
-
-      if (!target) {
-        continue;
-      }
-
-      const distance = Math.hypot(projectile.x - target.x, projectile.y - target.y);
-
-      if (distance <= 1.6) {
-        this.projectiles.delete(projectile.id);
-        this.finishMatch({
-          reason: "snowball",
-          winnerSlot: projectile.ownerSlot
+        this.countdownEndsAt = null;
+        this.result = null;
+        this.engine = new SoloRulesEngine({
+          botEnabled: false,
+          guestNames: this.buildGuestNameMap(),
+          localSlot: "A"
         });
-        return;
       }
+
+      return;
     }
 
-    if (this.matchEndsAt && now >= this.matchEndsAt) {
-      this.finishMatch({
-        reason: "timeout",
-        winnerSlot: null
-      });
+    if (this.lifecycle !== "in_match" || !this.engine) {
+      return;
     }
+
+    this.engine.tick(deltaMs);
+
+    const result = this.engine.getResult();
+    if (!result) {
+      return;
+    }
+
+    this.finishMatch({
+      reason: result.reason,
+      winnerSlot: result.winnerSlot
+    });
   }
 
   finishMatch({
@@ -296,8 +191,6 @@ export class DuelMatchController {
   }) {
     this.lifecycle = "finished";
     this.countdownEndsAt = null;
-    this.matchEndsAt = this.matchEndsAt ?? Date.now();
-    this.projectiles.clear();
     this.result = {
       status: "result",
       roomId: this.roomId,
@@ -310,17 +203,11 @@ export class DuelMatchController {
   resetToWaiting() {
     this.lifecycle = "waiting";
     this.countdownEndsAt = null;
-    this.matchEndsAt = null;
-    this.startedAt = null;
-    this.projectiles.clear();
+    this.engine = null;
     this.result = null;
 
     for (const player of this.players.values()) {
-      const spawn = SLOT_SPAWNS[player.slot];
-      player.x = spawn.x;
-      player.y = spawn.y;
       player.ready = false;
-      player.input = { ...DEFAULT_INPUT };
     }
   }
 
@@ -336,24 +223,77 @@ export class DuelMatchController {
     return this.result;
   }
 
-  getPlayers(): PlayerSnapshot[] {
+  getPlayers() {
     return [...this.players.values()].sort((left, right) =>
       left.slot.localeCompare(right.slot)
     );
   }
 
-  getProjectiles(): ProjectileSnapshot[] {
-    return [...this.projectiles.values()];
-  }
+  getSnapshotFor(sessionId: string): SessionSnapshot | null {
+    if (!this.engine) {
+      return null;
+    }
 
-  getMatchEndsAt() {
-    return this.matchEndsAt;
+    const player = this.players.get(sessionId);
+
+    if (!player) {
+      return null;
+    }
+
+    return this.applyPlayerMetadata(this.engine.getSnapshotFor(player.slot));
   }
 
   getOpponentGuestName(slot: SlotId) {
     return (
       this.getPlayers().find((player) => player.slot !== slot)?.guestName ?? "Waiting..."
     );
+  }
+
+  private applyPlayerMetadata(snapshot: SessionSnapshot): SessionSnapshot {
+    const localMeta = this.getPlayers().find(
+      (player) => player.slot === snapshot.localPlayer.slot
+    );
+    const opponentMeta = this.getPlayers().find(
+      (player) => player.slot === snapshot.opponentPlayer.slot
+    );
+
+    return {
+      ...snapshot,
+      localPlayer: {
+        ...snapshot.localPlayer,
+        connected: localMeta?.connected ?? false,
+        guestName: localMeta?.guestName ?? snapshot.localPlayer.guestName,
+        ready: localMeta?.ready ?? false
+      },
+      opponentPlayer: {
+        ...snapshot.opponentPlayer,
+        connected: opponentMeta?.connected ?? false,
+        guestName: opponentMeta?.guestName ?? snapshot.opponentPlayer.guestName,
+        ready: opponentMeta?.ready ?? false
+      },
+      match: {
+        ...snapshot.match,
+        countdownRemainingMs: 0,
+        lifecycle: this.lifecycle
+      },
+      hud: {
+        ...snapshot.hud,
+        result:
+          this.result === null
+            ? snapshot.hud.result
+            : {
+                winnerSlot: this.result.winnerSlot,
+                reason: this.result.reason
+              }
+      }
+    };
+  }
+
+  private buildGuestNameMap(): Record<SlotId, string> {
+    return {
+      A: this.getPlayers().find((player) => player.slot === "A")?.guestName ?? "Rider-A",
+      B: this.getPlayers().find((player) => player.slot === "B")?.guestName ?? "Rider-B"
+    };
   }
 
   private nextAvailableSlot(): SlotId | null {
@@ -369,24 +309,4 @@ export class DuelMatchController {
 
     return null;
   }
-
-  private spawnProjectile(player: InternalPlayer, now: number) {
-    this.projectileCounter += 1;
-
-    const id = `${player.slot}-${this.projectileCounter}`;
-    this.projectiles.set(id, {
-      id,
-      ownerSlot: player.slot,
-      x: player.x + Math.cos(player.angle) * 1.2,
-      y: player.y + Math.sin(player.angle) * 1.2,
-      radius: 0.5,
-      vx: Math.cos(player.angle) * PROJECTILE_SPEED,
-      vy: Math.sin(player.angle) * PROJECTILE_SPEED,
-      expiresAt: now + PROJECTILE_TTL_MS
-    });
-  }
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }

@@ -3,6 +3,7 @@ import {
   SoloRulesEngine,
   type GameSessionProvider,
   type SessionCommand,
+  type SessionProviderEvent,
   type SessionSnapshot
 } from "@snowbattle/shared";
 
@@ -10,9 +11,12 @@ export class LocalSoloProvider implements GameSessionProvider {
   private animationFrame = 0;
   private connected = false;
   private lastTickAt = 0;
+  private readonly eventListeners = new Set<(event: SessionProviderEvent) => void>();
   private latestSnapshot: SessionSnapshot | null = null;
   private readonly listeners = new Set<(snapshot: SessionSnapshot) => void>();
-  private readonly engine = new SoloRulesEngine();
+  private readonly engine = new SoloRulesEngine({
+    guestNames: { A: "You", B: "Bot" }
+  });
 
   connect() {
     if (this.connected) {
@@ -23,6 +27,10 @@ export class LocalSoloProvider implements GameSessionProvider {
     this.lastTickAt = performance.now();
     this.latestSnapshot = this.engine.getSnapshot();
     this.emit();
+    this.emitEvent({
+      type: "status",
+      message: "Local solo provider connected."
+    });
     this.animationFrame = window.requestAnimationFrame(this.tick);
   }
 
@@ -33,6 +41,10 @@ export class LocalSoloProvider implements GameSessionProvider {
 
     this.connected = false;
     window.cancelAnimationFrame(this.animationFrame);
+    this.emitEvent({
+      type: "status",
+      message: "Local solo provider disconnected."
+    });
   }
 
   send(command: SessionCommand) {
@@ -48,6 +60,14 @@ export class LocalSoloProvider implements GameSessionProvider {
 
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  subscribeEvent(listener: (event: SessionProviderEvent) => void) {
+    this.eventListeners.add(listener);
+
+    return () => {
+      this.eventListeners.delete(listener);
     };
   }
 
@@ -82,6 +102,12 @@ export class LocalSoloProvider implements GameSessionProvider {
 
     for (const listener of this.listeners) {
       listener(this.latestSnapshot);
+    }
+  }
+
+  private emitEvent(event: SessionProviderEvent) {
+    for (const listener of this.eventListeners) {
+      listener(event);
     }
   }
 }

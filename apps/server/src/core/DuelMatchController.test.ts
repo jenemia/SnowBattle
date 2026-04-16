@@ -40,4 +40,21 @@ describe("DuelMatchController", () => {
       winnerSlot: "A"
     });
   });
+
+  it("returns a localised shared snapshot when the match is active", () => {
+    const controller = new DuelMatchController("room-3");
+    controller.addPlayer({ sessionId: "a", guestName: "Alpha" });
+    controller.addPlayer({ sessionId: "b", guestName: "Beta" });
+    controller.setReady("a", true);
+    controller.setReady("b", true);
+    controller.maybeStartCountdown(1_000);
+    controller.tick(COUNTDOWN_MS + 1, 1_000 + COUNTDOWN_MS + 1);
+
+    const snapshot = controller.getSnapshotFor("a");
+
+    expect(snapshot).not.toBeNull();
+    expect(snapshot?.localPlayer.guestName).toBe("Alpha");
+    expect(snapshot?.opponentPlayer.guestName).toBe("Beta");
+    expect(snapshot?.match.lifecycle).toBe("in_match");
+  });
 });

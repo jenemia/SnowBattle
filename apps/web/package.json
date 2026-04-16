@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build && node ./scripts/create-spa-fallback.mjs",
+    "build": "npm run build --workspace @snowbattle/shared && tsc -p tsconfig.json --noEmit && vite build && node ./scripts/create-spa-fallback.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "vitest run --passWithNoTests",
+    "test": "npm run build --workspace @snowbattle/shared && vitest run --passWithNoTests",
     "playwright:install": "playwright install chromium",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && npm run build --workspace @snowbattle/server && playwright test"
   },
   "dependencies": {
     "@colyseus/sdk": "^0.17.40",

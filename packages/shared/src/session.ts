@@ -1,10 +1,16 @@
-import type { SlotId } from "./protocol";
+import type { MatchLifecycle, SlotId } from "./protocol";
 
 export type BuildType = "wall" | "snowman_turret" | "heater_beacon";
 
 export type MatchPhase = "standard" | "whiteout" | "final_push" | "finished";
 
 export type CenterBonfireState = "idle" | "active" | "claimed";
+
+export type SessionResultReason =
+  | "elimination"
+  | "timeout"
+  | "forfeit"
+  | "disconnect";
 
 export interface InputUpdateCommand {
   type: "input:update";
@@ -39,11 +45,14 @@ export type SessionCommand =
   | BuildCancelCommand;
 
 export interface SessionPlayerSnapshot {
+  connected: boolean;
   slot: SlotId;
+  guestName: string;
   hp: number;
   snowLoad: number;
   slowMultiplier: number;
   packedSnow: number;
+  ready: boolean;
   selectedBuild: BuildType | null;
   buildCooldownRemaining: number;
   x: number;
@@ -72,11 +81,13 @@ export interface SessionProjectileSnapshot {
 
 export interface SessionResultSnapshot {
   winnerSlot: SlotId | null;
-  reason: "elimination" | "timeout";
+  reason: SessionResultReason;
 }
 
 export interface SessionMatchSnapshot {
+  countdownRemainingMs: number;
   phase: MatchPhase;
+  lifecycle: MatchLifecycle;
   timeRemainingMs: number;
   whiteoutRadius: number;
   centerBonfireState: CenterBonfireState;
@@ -101,10 +112,51 @@ export interface SessionSnapshot {
   hud: SessionHudSnapshot;
 }
 
+export interface SessionStatusEvent {
+  type: "status";
+  message: string;
+}
+
+export interface SessionQueueEvent {
+  type: "queue";
+  position: number;
+  queuedPlayers: number;
+  roomId: string;
+}
+
+export interface SessionMatchFoundEvent {
+  type: "match_found";
+  countdownFrom: number;
+  opponentGuestName: string;
+  roomId: string;
+  slot: SlotId;
+}
+
+export interface SessionCountdownEvent {
+  type: "countdown";
+  remainingMs: number;
+  roomId: string;
+}
+
+export interface SessionRequeueEvent {
+  type: "requeue";
+  available: boolean;
+  message: string;
+  roomId: string;
+}
+
+export type SessionProviderEvent =
+  | SessionStatusEvent
+  | SessionQueueEvent
+  | SessionMatchFoundEvent
+  | SessionCountdownEvent
+  | SessionRequeueEvent;
+
 export interface GameSessionProvider {
   connect(): Promise<void> | void;
   disconnect(): Promise<void> | void;
   send(command: SessionCommand): void;
+  subscribeEvent(listener: (event: SessionProviderEvent) => void): () => void;
   subscribe(listener: (snapshot: SessionSnapshot) => void): () => void;
   getLatestSnapshot(): SessionSnapshot | null;
 }

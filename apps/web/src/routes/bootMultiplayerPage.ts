@@ -1,12 +1,18 @@
 import {
   COUNTDOWN_MS,
-  type MatchResultMessage,
-  type PlayerSnapshot,
-  type StateSnapshotMessage
+  type BuildType,
+  type SessionProviderEvent,
+  type SessionSnapshot
 } from "@snowbattle/shared";
 
 import { ThreeArena } from "../game/ThreeArena";
-import { SnowBattleClient } from "../network/SnowBattleClient";
+import { ColyseusSessionProvider } from "../providers/ColyseusSessionProvider";
+
+const BUILD_KEY_TO_TYPE: Record<string, BuildType> = {
+  "1": "wall",
+  "2": "snowman_turret",
+  "3": "heater_beacon"
+};
 
 export function bootMultiplayerPage(root: HTMLDivElement) {
   root.innerHTML = `
@@ -15,44 +21,45 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
         <div class="eyebrow">Vibe Jam Ready · Instant Browser Duel</div>
         <h1 class="title">Snow<span>Battle</span></h1>
         <p class="lede">
-          Enter a live 1v1 snow duel the moment the page loads. No account wall, no lobby maze,
-          just a frost-lit arena, authoritative sync, and one clean shot to land first.
+          Enter a live 1v1 snow duel the moment the page loads. The same shared rules engine now
+          powers both local play and the authoritative Colyseus room.
         </p>
         <div class="hero-actions">
           <a class="secondary-link" href="solo">Open solo movement lab</a>
         </div>
       </section>
       <section class="arena">
-        <div class="viewport" id="viewport"></div>
+        <div class="viewport" id="viewport" data-testid="multiplayer-viewport"></div>
         <div class="hud">
           <div class="panel">
             <h2>Live Queue</h2>
             <div class="status-line">
-              <span class="status-pill" id="status-pill">Booting server link…</span>
-              <span id="room-id">Room --</span>
+              <span class="status-pill" id="status-pill" data-testid="multiplayer-status">Booting server link…</span>
+              <span id="room-id" data-testid="multiplayer-room">Room --</span>
             </div>
             <div class="name-row">
               <input id="guest-name" maxlength="20" placeholder="Guest name (saved locally)" />
               <button id="save-name">Save</button>
             </div>
             <p class="hint">
-              Queue begins instantly. Move with WASD or arrows, aim with your cursor, click to throw.
+              Queue begins instantly. Move with WASD or arrows, click to throw, and use 1, 2, 3
+              plus Esc for builds.
             </p>
             <div class="telemetry">
               <div>
                 <span>Queue</span>
-                <strong id="queue-count">0 riders</strong>
+                <strong id="queue-count" data-testid="multiplayer-queue">0 riders</strong>
               </div>
               <div>
                 <span>Countdown</span>
-                <strong id="countdown">--</strong>
+                <strong id="countdown" data-testid="multiplayer-countdown">--</strong>
               </div>
               <div>
                 <span>Round</span>
-                <strong id="lifecycle">waiting</strong>
+                <strong id="lifecycle" data-testid="multiplayer-lifecycle">waiting</strong>
               </div>
             </div>
-            <div class="result" id="result-banner"></div>
+            <div class="result" id="result-banner" data-testid="multiplayer-result"></div>
             <button class="primary-button" id="requeue-button" disabled>Requeue</button>
           </div>
           <div class="panel panel-stack">
@@ -60,22 +67,22 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
               <h3>Duel Feed</h3>
               <div class="grid players">
                 <article class="player-card">
-                  <h4>Slot A</h4>
-                  <strong id="player-a-name">Awaiting rider</strong>
-                  <span id="player-a-state">Not connected</span>
+                  <h4>You</h4>
+                  <strong id="player-a-name" data-testid="multiplayer-local-name">Awaiting rider</strong>
+                  <span id="player-a-state" data-testid="multiplayer-local-state">Not connected</span>
                 </article>
                 <article class="player-card">
-                  <h4>Slot B</h4>
-                  <strong id="player-b-name">Awaiting rider</strong>
-                  <span id="player-b-state">Not connected</span>
+                  <h4>Opponent</h4>
+                  <strong id="player-b-name" data-testid="multiplayer-opponent-name">Awaiting rider</strong>
+                  <span id="player-b-state" data-testid="multiplayer-opponent-state">Not connected</span>
                 </article>
               </div>
             </div>
             <div class="panel">
               <h3>Input Loop</h3>
               <p class="hint">
-                This client renders a lightweight Three.js arena while the server remains
-                authoritative for movement, collisions, countdown, and match results.
+                This page now speaks only through a session provider. Colyseus is transport,
+                while the shared duel engine remains the gameplay authority.
               </p>
             </div>
           </div>
@@ -144,54 +151,31 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const arena = new ThreeArena(ui.viewport);
   arena.start();
 
-  let latestState: StateSnapshotMessage | null = null;
-  let localSessionId: string | null = null;
-  let inputSequence = 0;
-  const pointer = { x: 0, y: 0, active: false };
   const movement = new Set<string>();
-  let fireQueued = false;
+  let pointerClientX = 0;
+  let pointerClientY = 0;
+  let pointerActive = false;
 
-  const client = isBackendConfigured
-    ? new SnowBattleClient(serverUrl, {
-        onCountdown(message) {
-          ui.countdown.textContent = `${Math.ceil(message.remainingMs / 1000)}s`;
-          ui.lifecycle.textContent = "countdown";
-          ui.requeueButton.disabled = true;
-        },
-        onMatchFound(message) {
-          ui.statusPill.textContent = `Match found · Slot ${message.slot}`;
-          ui.roomId.textContent = `Room ${message.roomId}`;
-        },
-        onQueueStatus(message) {
-          ui.queueCount.textContent = `${message.queuedPlayers} rider${
-            message.queuedPlayers === 1 ? "" : "s"
-          }`;
-          ui.statusPill.textContent = `Queued · Position ${message.position}`;
-          ui.roomId.textContent = `Room ${message.roomId}`;
-          ui.lifecycle.textContent = "waiting";
-          ui.countdown.textContent = `${Math.ceil(COUNTDOWN_MS / 1000)}s`;
-        },
-        onRequeue(message) {
-          ui.requeueButton.disabled = !message.available;
-          ui.statusPill.textContent = message.message;
-        },
-        onResult(message) {
-          renderResult(message);
-          ui.lifecycle.textContent = "finished";
-          ui.requeueButton.disabled = false;
-        },
-        onState(message) {
-          latestState = message;
-          arena.applyState(message);
-          ui.lifecycle.textContent = message.lifecycle;
-          ui.roomId.textContent = `Room ${message.roomId}`;
-          renderPlayers(message.players);
-        },
-        onStatusChange(value) {
-          ui.statusPill.textContent = value;
-        }
+  const provider = isBackendConfigured
+    ? new ColyseusSessionProvider(serverUrl, () => {
+        return ui.guestNameInput.value.trim() || storedName;
       })
     : null;
+
+  provider?.subscribe((snapshot) => {
+    arena.applySnapshot(snapshot);
+    ui.lifecycle.textContent = snapshot.match.lifecycle;
+    renderPlayers(snapshot);
+    renderResult(snapshot);
+
+    if (snapshot.hud.result) {
+      ui.requeueButton.disabled = false;
+    }
+  });
+
+  provider?.subscribeEvent((event) => {
+    handleProviderEvent(event, ui);
+  });
 
   ui.saveNameButton.addEventListener("click", () => {
     localStorage.setItem(
@@ -205,7 +189,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     ui.requeueButton.disabled = true;
     ui.resultBanner.textContent = "";
     ui.resultBanner.classList.remove("danger");
-    await client?.leave("requeue");
+    await provider?.disconnect();
     await joinQueue();
   });
 
@@ -213,6 +197,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   window.addEventListener("keyup", handleKeyUp);
   ui.viewport.addEventListener("pointermove", handlePointerMove);
   ui.viewport.addEventListener("pointerdown", handlePointerDown);
+  ui.viewport.addEventListener("pointerleave", handlePointerLeave);
 
   if (isBackendConfigured) {
     void joinQueue();
@@ -228,16 +213,15 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   window.setInterval(() => sendInput(), 1000 / 20);
 
   async function joinQueue() {
-    if (!client) {
+    if (!provider) {
       return;
     }
 
     ui.resultBanner.textContent = "";
     ui.resultBanner.classList.remove("danger");
+
     try {
-      await client.queue(ui.guestNameInput.value.trim() || storedName);
-      localSessionId = client.sessionId;
-      arena.setLocalSessionId(localSessionId);
+      await provider.connect();
     } catch {
       ui.statusPill.textContent = "Backend connection failed";
       ui.resultBanner.textContent =
@@ -248,23 +232,25 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   }
 
   function sendInput() {
-    if (!client?.sessionId) {
+    if (!provider) {
       return;
     }
 
     const { moveX, moveY } = currentMovementVector();
-    const pointerAngle = pointer.active ? Math.atan2(pointer.y, pointer.x) : 0;
+    const worldPoint = pointerActive
+      ? arena.screenPointToWorld(pointerClientX, pointerClientY)
+      : null;
 
-    client.sendInput({
-      sequence: inputSequence,
-      moveX,
-      moveY,
-      pointerAngle,
-      fire: fireQueued
+    provider.send({
+      type: "input:update",
+      payload: {
+        aimX: worldPoint?.x ?? 0,
+        aimY: worldPoint?.z ?? 0,
+        moveX,
+        moveY,
+        pointerActive: worldPoint !== null
+      }
     });
-
-    inputSequence += 1;
-    fireQueued = false;
   }
 
   function currentMovementVector() {
@@ -277,39 +263,40 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     return { moveX: x, moveY: y };
   }
 
-  function renderPlayers(players: PlayerSnapshot[]) {
-    const slotA = players.find((player) => player.slot === "A");
-    const slotB = players.find((player) => player.slot === "B");
-
-    ui.playerAName.textContent = slotA?.guestName ?? "Awaiting rider";
-    ui.playerAState.textContent = slotA
-      ? `${slotA.ready ? "Ready" : "Syncing"} · x ${slotA.x.toFixed(1)}`
-      : "Not connected";
-    ui.playerBName.textContent = slotB?.guestName ?? "Awaiting rider";
-    ui.playerBState.textContent = slotB
-      ? `${slotB.ready ? "Ready" : "Syncing"} · x ${slotB.x.toFixed(1)}`
-      : "Not connected";
+  function renderPlayers(snapshot: SessionSnapshot) {
+    ui.playerAName.textContent = snapshot.localPlayer.guestName;
+    ui.playerAState.textContent = `${snapshot.localPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.localPlayer.x.toFixed(1)}`;
+    ui.playerBName.textContent = snapshot.opponentPlayer.guestName;
+    ui.playerBState.textContent = `${snapshot.opponentPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.opponentPlayer.x.toFixed(1)}`;
   }
 
-  function renderResult(message: MatchResultMessage) {
-    const localPlayer = latestState?.players.find(
-      (player) => player.sessionId === localSessionId
-    );
-    const won = localPlayer?.slot && message.winnerSlot === localPlayer.slot;
+  function renderResult(snapshot: SessionSnapshot) {
+    const result = snapshot.hud.result;
 
-    if (message.reason === "timeout") {
+    if (!result) {
+      ui.resultBanner.textContent = "";
+      ui.resultBanner.classList.remove("danger");
+      return;
+    }
+
+    if (result.reason === "timeout") {
       ui.resultBanner.textContent =
         "Whiteout. No clean hit before the storm timer expired.";
       ui.resultBanner.classList.remove("danger");
       return;
     }
 
+    const won = result.winnerSlot === snapshot.localPlayer.slot;
     ui.resultBanner.textContent = won
       ? "Direct hit. You won the duel."
-      : message.winnerSlot
-        ? "Impact confirmed. Opponent took the round."
+      : result.winnerSlot
+        ? result.reason === "forfeit"
+          ? "Opponent disengaged. You take the round."
+          : result.reason === "disconnect"
+            ? "Opponent disconnected. The round is yours."
+            : "Impact confirmed. Opponent took the round."
         : "Round resolved without a winner.";
-    ui.resultBanner.classList.toggle("danger", !won);
+    ui.resultBanner.classList.toggle("danger", !won && result.winnerSlot !== null);
   }
 
   function handleKeyDown(event: KeyboardEvent) {
@@ -318,6 +305,28 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     if (key) {
       event.preventDefault();
       movement.add(key);
+      return;
+    }
+
+    const digitKey =
+      event.code === "Numpad1" ? "1" :
+      event.code === "Numpad2" ? "2" :
+      event.code === "Numpad3" ? "3" :
+      event.key;
+    const buildType = BUILD_KEY_TO_TYPE[digitKey];
+
+    if (buildType) {
+      event.preventDefault();
+      provider?.send({
+        type: "build:select",
+        payload: { buildType }
+      });
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      provider?.send({ type: "build:cancel" });
     }
   }
 
@@ -331,14 +340,68 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   }
 
   function handlePointerMove(event: PointerEvent) {
-    const bounds = ui.viewport.getBoundingClientRect();
-    pointer.x = event.clientX - bounds.left - bounds.width / 2;
-    pointer.y = event.clientY - bounds.top - bounds.height / 2;
-    pointer.active = true;
+    pointerActive = true;
+    pointerClientX = event.clientX;
+    pointerClientY = event.clientY;
   }
 
-  function handlePointerDown() {
-    fireQueued = true;
+  function handlePointerDown(event: PointerEvent) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    pointerActive = true;
+    pointerClientX = event.clientX;
+    pointerClientY = event.clientY;
+    sendInput();
+    provider?.send({ type: "action:primary" });
+  }
+
+  function handlePointerLeave() {
+    pointerActive = false;
+  }
+}
+
+function handleProviderEvent(
+  event: SessionProviderEvent,
+  ui: {
+    countdown: HTMLElement;
+    lifecycle: HTMLElement;
+    queueCount: HTMLElement;
+    requeueButton: HTMLButtonElement;
+    roomId: HTMLElement;
+    statusPill: HTMLElement;
+  }
+) {
+  if (event.type === "status") {
+    ui.statusPill.textContent = event.message;
+    return;
+  }
+
+  if (event.type === "queue") {
+    ui.queueCount.textContent = `${event.queuedPlayers} rider${
+      event.queuedPlayers === 1 ? "" : "s"
+    }`;
+    ui.roomId.textContent = `Room ${event.roomId}`;
+    ui.lifecycle.textContent = "waiting";
+    ui.countdown.textContent = `${Math.ceil(COUNTDOWN_MS / 1000)}s`;
+    return;
+  }
+
+  if (event.type === "match_found") {
+    ui.roomId.textContent = `Room ${event.roomId}`;
+    return;
+  }
+
+  if (event.type === "countdown") {
+    ui.countdown.textContent = `${Math.ceil(event.remainingMs / 1000)}s`;
+    ui.lifecycle.textContent = "countdown";
+    ui.requeueButton.disabled = true;
+    return;
+  }
+
+  if (event.type === "requeue") {
+    ui.requeueButton.disabled = !event.available;
   }
 }
 

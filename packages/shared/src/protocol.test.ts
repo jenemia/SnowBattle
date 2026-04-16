@@ -3,25 +3,31 @@ import { describe, expect, it } from "vitest";
 import { parseClientMessage } from "./validation";
 
 describe("shared client message validation", () => {
-  it("accepts a valid input snapshot", () => {
-    const result = parseClientMessage("player:input", {
-      sequence: 2,
-      moveX: 0.25,
-      moveY: -1,
-      pointerAngle: Math.PI,
-      fire: false
+  it("accepts a valid session command", () => {
+    const result = parseClientMessage("session:command", {
+      type: "input:update",
+      payload: {
+        aimX: 6,
+        aimY: -4,
+        moveX: 0.25,
+        moveY: -1,
+        pointerActive: true
+      }
     });
 
     expect(result.success).toBe(true);
   });
 
   it("rejects malformed payloads", () => {
-    const result = parseClientMessage("player:input", {
-      sequence: -1,
-      moveX: 99,
-      moveY: "bad",
-      pointerAngle: 0,
-      fire: "nope"
+    const result = parseClientMessage("session:command", {
+      type: "input:update",
+      payload: {
+        aimX: 0,
+        aimY: 0,
+        moveX: 99,
+        moveY: "bad",
+        pointerActive: "nope"
+      }
     });
 
     expect(result.success).toBe(false);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SessionCommand, SessionSnapshot } from "./session";
 
 export const slotSchema = z.enum(["A", "B"]);
 export type SlotId = z.infer<typeof slotSchema>;
@@ -12,7 +13,7 @@ export const lifecycleSchema = z.enum([
 export type MatchLifecycle = z.infer<typeof lifecycleSchema>;
 
 export const matchResultReasonSchema = z.enum([
-  "snowball",
+  "elimination",
   "forfeit",
   "disconnect",
   "timeout"
@@ -27,13 +28,32 @@ export const clientReadySchema = z.object({
   ready: z.boolean().default(true)
 });
 
-export const clientInputSchema = z.object({
-  sequence: z.number().int().nonnegative(),
-  moveX: z.number().min(-1).max(1),
-  moveY: z.number().min(-1).max(1),
-  pointerAngle: z.number(),
-  fire: z.boolean()
-});
+const buildTypeSchema = z.enum(["wall", "snowman_turret", "heater_beacon"]);
+
+export const sessionCommandSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("input:update"),
+    payload: z.object({
+      aimX: z.number(),
+      aimY: z.number(),
+      moveX: z.number().min(-1).max(1),
+      moveY: z.number().min(-1).max(1),
+      pointerActive: z.boolean()
+    })
+  }),
+  z.object({
+    type: z.literal("action:primary")
+  }),
+  z.object({
+    type: z.literal("build:select"),
+    payload: z.object({
+      buildType: buildTypeSchema
+    })
+  }),
+  z.object({
+    type: z.literal("build:cancel")
+  })
+]);
 
 export const clientHeartbeatSchema = z.object({
   sentAt: z.number().int().nonnegative()
@@ -46,7 +66,7 @@ export const clientLeaveSchema = z.object({
 export const clientMessageSchemas = {
   "queue:join": clientQueueJoinSchema,
   "player:ready": clientReadySchema,
-  "player:input": clientInputSchema,
+  "session:command": sessionCommandSchema,
   "player:heartbeat": clientHeartbeatSchema,
   "player:leave": clientLeaveSchema
 } as const;
@@ -55,26 +75,6 @@ export type ClientMessageType = keyof typeof clientMessageSchemas;
 export type ClientPayloadMap = {
   [TType in ClientMessageType]: z.infer<(typeof clientMessageSchemas)[TType]>;
 };
-
-export interface PlayerSnapshot {
-  sessionId: string;
-  slot: SlotId;
-  guestName: string;
-  x: number;
-  y: number;
-  angle: number;
-  hp: number;
-  ready: boolean;
-  connected: boolean;
-}
-
-export interface ProjectileSnapshot {
-  id: string;
-  ownerSlot: SlotId;
-  x: number;
-  y: number;
-  radius: number;
-}
 
 export interface QueueStatusMessage {
   status: "queued";
@@ -100,11 +100,7 @@ export interface CountdownMessage {
 export interface StateSnapshotMessage {
   status: "state";
   roomId: string;
-  lifecycle: MatchLifecycle;
-  serverTime: number;
-  matchEndsAt: number | null;
-  players: PlayerSnapshot[];
-  projectiles: ProjectileSnapshot[];
+  snapshot: SessionSnapshot;
 }
 
 export interface MatchResultMessage {
@@ -136,3 +132,6 @@ export type ServerMessage =
   | MatchResultMessage
   | RequeuePromptMessage
   | PongMessage;
+
+export type SessionCommandMessage = z.infer<typeof sessionCommandSchema>;
+export type SharedSessionCommand = Extract<SessionCommand, SessionCommandMessage>;

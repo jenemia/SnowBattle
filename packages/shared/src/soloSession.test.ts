@@ -10,19 +10,21 @@ import { SoloRulesEngine } from "./soloSession";
 import type { SlotId } from "./protocol";
 
 type RuntimeAccess = {
-  centerControlTime: Record<SlotId, number>;
-  elapsedMs: number;
-  players: Record<
-    SlotId,
-    {
-      hp: number;
-      lastHitAt: number | null;
-      snowLoad: number;
-      totalDirectDamageDealt: number;
-      x: number;
-      z: number;
-    }
-  >;
+  runtime: {
+    centerControlTime: Record<SlotId, number>;
+    elapsedMs: number;
+    players: Record<
+      SlotId,
+      {
+        hp: number;
+        lastHitAt: number | null;
+        snowLoad: number;
+        totalDirectDamageDealt: number;
+        x: number;
+        z: number;
+      }
+    >;
+  };
 };
 
 describe("SoloRulesEngine", () => {
@@ -129,15 +131,15 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
-    runtime.players.A.x = 0;
-    runtime.players.A.z = 0;
-    runtime.players.B.x = 0;
-    runtime.players.B.z = 0;
-    runtime.players.A.snowLoad = 10;
-    runtime.players.B.snowLoad = 30;
-    runtime.players.A.lastHitAt = runtime.elapsedMs;
-    runtime.players.B.lastHitAt = runtime.elapsedMs;
+    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
+    runtime.runtime.players.A.x = 0;
+    runtime.runtime.players.A.z = 0;
+    runtime.runtime.players.B.x = 0;
+    runtime.runtime.players.B.z = 0;
+    runtime.runtime.players.A.snowLoad = 10;
+    runtime.runtime.players.B.snowLoad = 30;
+    runtime.runtime.players.A.lastHitAt = runtime.runtime.elapsedMs;
+    runtime.runtime.players.B.lastHitAt = runtime.runtime.elapsedMs;
 
     advance(engine, 50);
 
@@ -151,17 +153,17 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
-    runtime.players.A.x = 0;
-    runtime.players.A.z = 0;
-    runtime.players.B.x = 0;
-    runtime.players.B.z = 0;
-    runtime.players.A.hp = 70;
-    runtime.players.B.hp = 70;
-    runtime.players.A.snowLoad = 0;
-    runtime.players.B.snowLoad = 0;
-    runtime.players.A.totalDirectDamageDealt = 30;
-    runtime.players.B.totalDirectDamageDealt = 15;
+    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
+    runtime.runtime.players.A.x = 0;
+    runtime.runtime.players.A.z = 0;
+    runtime.runtime.players.B.x = 0;
+    runtime.runtime.players.B.z = 0;
+    runtime.runtime.players.A.hp = 70;
+    runtime.runtime.players.B.hp = 70;
+    runtime.runtime.players.A.snowLoad = 0;
+    runtime.runtime.players.B.snowLoad = 0;
+    runtime.runtime.players.A.totalDirectDamageDealt = 30;
+    runtime.runtime.players.B.totalDirectDamageDealt = 15;
 
     advance(engine, 50);
 
@@ -175,19 +177,19 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
-    runtime.players.A.x = 0;
-    runtime.players.A.z = 0;
-    runtime.players.B.x = 0;
-    runtime.players.B.z = 0;
-    runtime.players.A.hp = 64;
-    runtime.players.B.hp = 64;
-    runtime.players.A.snowLoad = 0;
-    runtime.players.B.snowLoad = 0;
-    runtime.players.A.totalDirectDamageDealt = 15;
-    runtime.players.B.totalDirectDamageDealt = 15;
-    runtime.centerControlTime.A = 2_000;
-    runtime.centerControlTime.B = 500;
+    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
+    runtime.runtime.players.A.x = 0;
+    runtime.runtime.players.A.z = 0;
+    runtime.runtime.players.B.x = 0;
+    runtime.runtime.players.B.z = 0;
+    runtime.runtime.players.A.hp = 64;
+    runtime.runtime.players.B.hp = 64;
+    runtime.runtime.players.A.snowLoad = 0;
+    runtime.runtime.players.B.snowLoad = 0;
+    runtime.runtime.players.A.totalDirectDamageDealt = 15;
+    runtime.runtime.players.B.totalDirectDamageDealt = 15;
+    runtime.runtime.centerControlTime.A = 2_000;
+    runtime.runtime.centerControlTime.B = 500;
 
     advance(engine, 50);
 
@@ -201,19 +203,19 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.elapsedMs = SOLO_MATCH_DURATION_MS - FIRE_COOLDOWN_MS;
-    runtime.players.A.x = 0;
-    runtime.players.A.z = 0;
-    runtime.players.B.x = 0;
-    runtime.players.B.z = 0;
-    runtime.players.A.hp = 80;
-    runtime.players.B.hp = 80;
-    runtime.players.A.snowLoad = 0;
-    runtime.players.B.snowLoad = 0;
-    runtime.players.A.totalDirectDamageDealt = 15;
-    runtime.players.B.totalDirectDamageDealt = 15;
-    runtime.centerControlTime.A = 1_000;
-    runtime.centerControlTime.B = 1_000;
+    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - FIRE_COOLDOWN_MS;
+    runtime.runtime.players.A.x = 0;
+    runtime.runtime.players.A.z = 0;
+    runtime.runtime.players.B.x = 0;
+    runtime.runtime.players.B.z = 0;
+    runtime.runtime.players.A.hp = 80;
+    runtime.runtime.players.B.hp = 80;
+    runtime.runtime.players.A.snowLoad = 0;
+    runtime.runtime.players.B.snowLoad = 0;
+    runtime.runtime.players.A.totalDirectDamageDealt = 15;
+    runtime.runtime.players.B.totalDirectDamageDealt = 15;
+    runtime.runtime.centerControlTime.A = 1_000;
+    runtime.runtime.centerControlTime.B = 1_000;
 
     advance(engine, FIRE_COOLDOWN_MS);
 

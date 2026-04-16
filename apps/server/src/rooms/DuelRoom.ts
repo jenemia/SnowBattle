@@ -47,27 +47,21 @@ export class DuelRoom extends Room {
         return;
       }
 
-      this.controller.handleMessage(client.sessionId, {
-        type: "player:ready",
-        payload: parsed.data
-      });
+      this.controller.setReady(client.sessionId, parsed.data.ready);
 
       if (this.controller.maybeStartCountdown(Date.now())) {
         this.lock();
       }
     });
 
-    this.onMessage("player:input", (client, payload) => {
-      const parsed = parseClientMessage("player:input", payload);
+    this.onMessage("session:command", (client, payload) => {
+      const parsed = parseClientMessage("session:command", payload);
 
       if (!parsed.success) {
         return;
       }
 
-      this.controller.handleMessage(client.sessionId, {
-        type: "player:input",
-        payload: parsed.data
-      });
+      this.controller.receiveCommand(client.sessionId, parsed.data);
     });
 
     this.onMessage("player:heartbeat", (client, payload) => {
@@ -143,7 +137,7 @@ export class DuelRoom extends Room {
 
   onLeave(client: Client) {
     const { remainingPlayers, result, shouldResetToWaiting } =
-      this.controller.removePlayer(client.sessionId);
+      this.controller.removePlayer(client.sessionId, "forfeit");
 
     this.syncQueueMetadata();
 
@@ -235,21 +229,31 @@ export class DuelRoom extends Room {
   }
 
   private pushState(target?: Client) {
-    const payload: StateSnapshotMessage = {
-      status: "state",
-      roomId: this.roomId,
-      lifecycle: this.controller.lifecycle,
-      serverTime: Date.now(),
-      matchEndsAt: this.controller.getMatchEndsAt(),
-      players: this.controller.getPlayers(),
-      projectiles: this.controller.getProjectiles()
-    };
-
     if (target) {
-      target.send("server:state", payload);
+      const snapshot = this.controller.getSnapshotFor(target.sessionId);
+
+      if (snapshot) {
+        target.send("server:state", {
+          status: "state",
+          roomId: this.roomId,
+          snapshot
+        } satisfies StateSnapshotMessage);
+      }
       return;
     }
 
-    this.broadcast("server:state", payload);
+    for (const client of this.clients) {
+      const snapshot = this.controller.getSnapshotFor(client.sessionId);
+
+      if (!snapshot) {
+        continue;
+      }
+
+      client.send("server:state", {
+        status: "state",
+        roomId: this.roomId,
+        snapshot
+      } satisfies StateSnapshotMessage);
+    }
   }
 }
