@@ -684,6 +684,7 @@ class ProjectileManager {
       }),
       MAX_PROJECTILES
     );
+    this.mesh.frustumCulled = false;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -811,6 +812,7 @@ class WallManager {
       }),
       MAX_WALLS
     );
+    this.mesh.frustumCulled = false;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
