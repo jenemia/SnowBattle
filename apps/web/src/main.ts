@@ -2,6 +2,9 @@ import "./styles.css";
 
 import { bootMultiplayerPage } from "./routes/bootMultiplayerPage";
 import { bootSoloPage } from "./routes/bootSoloPage";
+import { initSentry } from "./sentry";
+
+initSentry();
 
 const root = document.querySelector<HTMLDivElement>("#app");
 

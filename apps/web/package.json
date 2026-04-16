@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@colyseus/sdk": "^0.17.40",
+    "@sentry/browser": "^10.49.0",
     "@snowbattle/shared": "0.1.0",
     "three": "^0.183.2"
   },

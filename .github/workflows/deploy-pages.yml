@@ -39,6 +39,9 @@ jobs:
 
       - name: Build web client
         env:
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: production
+          VITE_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.VITE_SENTRY_TRACES_SAMPLE_RATE || '0.1' }}
           VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL || 'wss://snowbattle.fly.dev' }}
         run: npm run build --workspace @snowbattle/web
 
