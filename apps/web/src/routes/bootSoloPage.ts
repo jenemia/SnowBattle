@@ -7,8 +7,8 @@ export function bootSoloPage(root: HTMLDivElement) {
         <div class="eyebrow">Solo Movement Lab · Low Poly Runner</div>
         <h1 class="title">Snow<span>Stride</span></h1>
         <p class="lede">
-          A local movement sandbox for testing low-poly character readability, smooth
-          WASD control, and a gently tilted top-down chase camera.
+          A local combat and build sandbox for testing low-poly readability, snowball
+          throwing, one-tap wall placement, and a wider tactical camera.
         </p>
         <div class="hero-actions">
           <a class="secondary-link" href="./">Back to duel home</a>
@@ -20,21 +20,33 @@ export function bootSoloPage(root: HTMLDivElement) {
           <div class="panel panel--solo">
             <h2>Solo Test</h2>
             <div class="status-line">
-              <span class="status-pill" id="solo-status">Ready</span>
-              <span id="solo-mode">Route /solo</span>
+              <span class="status-pill" id="solo-status">Combat</span>
+              <span id="solo-mode">Mode ready</span>
             </div>
             <p class="hint">
-              Move with WASD or arrow keys. The character uses local simulation only and
-              never attempts a backend connection on this page.
+              Move with WASD or arrow keys. LMB throws a snowball. Press 1 to preview one
+              wall, click to place it, and press Esc to cancel build mode.
             </p>
             <div class="telemetry solo-stats">
               <div>
-                <span>Speed</span>
-                <strong id="solo-speed">0.00</strong>
+                <span>Mode</span>
+                <strong id="solo-mode-label">combat</strong>
               </div>
               <div>
-                <span>Position</span>
-                <strong id="solo-position">0.0 / 0.0</strong>
+                <span>Cooldown</span>
+                <strong id="solo-cooldown">0.00s</strong>
+              </div>
+              <div>
+                <span>Walls</span>
+                <strong id="solo-walls">0</strong>
+              </div>
+              <div>
+                <span>Snowballs</span>
+                <strong id="solo-projectiles">0</strong>
+              </div>
+              <div>
+                <span>Speed</span>
+                <strong id="solo-speed">0.00</strong>
               </div>
               <div>
                 <span>Facing</span>
@@ -42,7 +54,7 @@ export function bootSoloPage(root: HTMLDivElement) {
               </div>
             </div>
             <div class="solo-readout" id="solo-readout">
-              Waiting for movement input.
+              Combat mode. Click to throw a snowball.
             </div>
           </div>
         </div>
@@ -51,24 +63,59 @@ export function bootSoloPage(root: HTMLDivElement) {
   `;
 
   const viewport = root.querySelector<HTMLElement>("#solo-viewport");
+  const cooldown = root.querySelector<HTMLElement>("#solo-cooldown");
   const speed = root.querySelector<HTMLElement>("#solo-speed");
-  const position = root.querySelector<HTMLElement>("#solo-position");
   const facing = root.querySelector<HTMLElement>("#solo-facing");
+  const modeLabel = root.querySelector<HTMLElement>("#solo-mode-label");
+  const projectiles = root.querySelector<HTMLElement>("#solo-projectiles");
   const status = root.querySelector<HTMLElement>("#solo-status");
+  const mode = root.querySelector<HTMLElement>("#solo-mode");
   const readout = root.querySelector<HTMLElement>("#solo-readout");
+  const walls = root.querySelector<HTMLElement>("#solo-walls");
 
-  if (!viewport || !speed || !position || !facing || !status || !readout) {
+  if (
+    !viewport ||
+    !cooldown ||
+    !speed ||
+    !facing ||
+    !modeLabel ||
+    !projectiles ||
+    !status ||
+    !mode ||
+    !readout ||
+    !walls
+  ) {
     throw new Error("Missing solo UI nodes");
   }
 
   const arena = new SoloArena(viewport, (snapshot) => {
+    cooldown.textContent = `${(snapshot.cooldownMs / 1000).toFixed(2)}s`;
     speed.textContent = snapshot.speed.toFixed(2);
-    position.textContent = `${snapshot.x.toFixed(1)} / ${snapshot.z.toFixed(1)}`;
     facing.textContent = `${Math.round(snapshot.facingDegrees)}°`;
-    status.textContent = snapshot.moving ? "Moving" : "Ready";
-    readout.textContent = snapshot.moving
-      ? `Input ${snapshot.inputLabel} · stride ${snapshot.stridePhase.toFixed(2)}`
-      : "Waiting for movement input.";
+    modeLabel.textContent = snapshot.mode;
+    projectiles.textContent = String(snapshot.activeProjectiles);
+    status.textContent = snapshot.mode === "build" ? "Build" : "Combat";
+    mode.textContent =
+      snapshot.mode === "build"
+        ? snapshot.buildValid
+          ? "Placement valid"
+          : "Placement blocked"
+        : snapshot.cooldownMs > 0
+          ? "Snowball cooling"
+          : "Throw ready";
+    walls.textContent = String(snapshot.activeWalls);
+    readout.textContent =
+      snapshot.mode === "build"
+        ? snapshot.buildValid
+          ? "Build mode. Click to place one wall."
+          : "Build mode. Move away from walls, edges, or your player."
+        : snapshot.cooldownMs > 0
+          ? `Cooldown ${(snapshot.cooldownMs / 1000).toFixed(2)}s · facing ${Math.round(
+              snapshot.facingDegrees
+            )}°`
+          : snapshot.moving
+            ? `Input ${snapshot.inputLabel} · stride ${snapshot.stridePhase.toFixed(2)}`
+            : "Combat mode. Click to throw a snowball.";
   });
 
   arena.start();

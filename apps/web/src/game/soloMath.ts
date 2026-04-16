@@ -74,3 +74,9 @@ export function movementLabel(vector: MovementVector) {
 
   return [vertical, horizontal].filter(Boolean).join("-");
 }
+
+export function normalizeMovementKey(key: string) {
+  const normalized = key.length === 1 ? key.toLowerCase() : key;
+
+  return KEY_BINDINGS[normalized] ? normalized : null;
+}
