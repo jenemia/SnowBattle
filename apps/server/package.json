@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start:e2e": "node ./scripts/start-e2e-server.mjs",
     "start": "tsx src/server.ts",
+    "start:prod": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "npm run build --workspace @snowbattle/shared && vitest run"
