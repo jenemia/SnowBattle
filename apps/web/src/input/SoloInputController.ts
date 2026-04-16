@@ -82,7 +82,7 @@ export class SoloInputController {
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {
-    const movementKey = normalizeMovementKey(event.key);
+    const movementKey = normalizeMovementKey(event.key, event.code);
 
     if (movementKey) {
       event.preventDefault();
@@ -90,7 +90,12 @@ export class SoloInputController {
       return;
     }
 
-    const buildType = BUILD_KEY_TO_TYPE[event.key];
+    const digitKey =
+      event.code === "Numpad1" ? "1" :
+      event.code === "Numpad2" ? "2" :
+      event.code === "Numpad3" ? "3" :
+      event.key;
+    const buildType = BUILD_KEY_TO_TYPE[digitKey];
     if (buildType) {
       event.preventDefault();
       this.provider.send({
@@ -107,7 +112,7 @@ export class SoloInputController {
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent) => {
-    const movementKey = normalizeMovementKey(event.key);
+    const movementKey = normalizeMovementKey(event.key, event.code);
 
     if (!movementKey) {
       return;
