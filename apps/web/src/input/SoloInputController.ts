@@ -97,6 +97,11 @@ export class SoloInputController {
       event.key;
     const buildType = BUILD_KEY_TO_TYPE[digitKey];
     if (buildType) {
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
+
       event.preventDefault();
       this.provider.send({
         type: "build:select",
@@ -106,6 +111,11 @@ export class SoloInputController {
     }
 
     if (event.key === "Escape") {
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
+
       event.preventDefault();
       this.provider.send({ type: "build:cancel" });
     }

@@ -316,6 +316,11 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     const buildType = BUILD_KEY_TO_TYPE[digitKey];
 
     if (buildType) {
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
+
       event.preventDefault();
       provider?.send({
         type: "build:select",
@@ -325,6 +330,11 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     }
 
     if (event.key === "Escape") {
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
+
       event.preventDefault();
       provider?.send({ type: "build:cancel" });
     }
@@ -428,7 +438,7 @@ function resolveServerUrl() {
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";
 
-  return isLocalHost ? "ws://localhost:2567" : "";
+  return isLocalHost ? `ws://${window.location.hostname}:2567` : "";
 }
 
 function normalizeMovementKey(key: string) {

@@ -40,6 +40,20 @@ describe("SoloInputController", () => {
       payload: { buildType: "snowman_turret" }
     });
   });
+
+  it("ignores repeated build hotkeys", () => {
+    const provider = { send: vi.fn() };
+    const controller = createController(provider);
+
+    controller.handleKeyDown({
+      code: "Digit1",
+      key: "1",
+      preventDefault: vi.fn(),
+      repeat: true
+    } as unknown as KeyboardEvent);
+
+    expect(provider.send).not.toHaveBeenCalled();
+  });
 });
 
 function createController(providerOverride?: { send: ReturnType<typeof vi.fn> }) {
