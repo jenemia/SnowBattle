@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseClientMessage } from "./validation";
+import { parseClientMessage } from "./validation.js";
 
 describe("shared client message validation", () => {
   it("accepts a valid session command", () => {

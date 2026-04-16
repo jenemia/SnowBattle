@@ -1,7 +1,7 @@
-import { SOLO_BONFIRE_RADIUS, SOLO_SNOWBALL_RANGE } from "../constants";
-import type { MatchPhase } from "../session";
-import { trySpawnProjectile } from "./projectileStep";
-import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes";
+import { SOLO_BONFIRE_RADIUS, SOLO_SNOWBALL_RANGE } from "../constants.js";
+import type { MatchPhase } from "../session.js";
+import { trySpawnProjectile } from "./projectileStep.js";
+import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
 
 export function updateBot(
   runtime: SoloRuntimeState,

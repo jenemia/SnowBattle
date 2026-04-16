@@ -1,8 +1,8 @@
-import type { SlotId } from "../protocol";
-import type { MatchPhase, SessionCommand } from "../session";
-import { trySpawnProjectile } from "./projectileStep";
-import { trySpawnStructure } from "./structureStep";
-import type { SoloRuntimeState } from "./runtimeTypes";
+import type { SlotId } from "../protocol.js";
+import type { MatchPhase, SessionCommand } from "../session.js";
+import { trySpawnProjectile } from "./projectileStep.js";
+import { trySpawnStructure } from "./structureStep.js";
+import type { SoloRuntimeState } from "./runtimeTypes.js";
 
 export function reduceCommand(
   runtime: SoloRuntimeState,

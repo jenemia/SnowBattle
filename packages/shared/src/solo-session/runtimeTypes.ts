@@ -1,10 +1,10 @@
-import type { SlotId } from "../protocol";
+import type { SlotId } from "../protocol.js";
 import type {
   SessionPlayerSnapshot,
   SessionProjectileSnapshot,
   SessionResultSnapshot,
   SessionStructureSnapshot
-} from "../session";
+} from "../session.js";
 
 export interface PlayerRuntimeState extends SessionPlayerSnapshot {
   aimX: number;

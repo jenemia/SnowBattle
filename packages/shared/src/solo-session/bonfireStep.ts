@@ -5,8 +5,8 @@ import {
   SOLO_BONFIRE_RADIUS,
   SOLO_BONFIRE_SNOW_LOAD_REWARD,
   SOLO_MAX_PACKED_SNOW
-} from "../constants";
-import type { SoloRuntimeState } from "./runtimeTypes";
+} from "../constants.js";
+import type { SoloRuntimeState } from "./runtimeTypes.js";
 
 const BONFIRE_ACTIVATIONS = [75_000, 135_000];
 

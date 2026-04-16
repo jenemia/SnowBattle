@@ -9,9 +9,9 @@ import {
   SOLO_SNOWBALL_LOAD,
   SOLO_SNOWBALL_RANGE,
   SOLO_STRUCTURE_COLLISION_RADIUS
-} from "../constants";
-import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes";
-import { circleIntersectsWall } from "./geometry";
+} from "../constants.js";
+import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
+import { circleIntersectsWall } from "./geometry.js";
 
 export function trySpawnProjectile(runtime: SoloRuntimeState, player: PlayerRuntimeState) {
   if (player.fireCooldownRemaining > 0) {

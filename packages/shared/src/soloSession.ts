@@ -1,6 +1,6 @@
-import { SOLO_MATCH_DURATION_MS } from "./constants";
-import type { SlotId } from "./protocol";
-import type { MatchPhase, SessionCommand } from "./session";
+import { SOLO_MATCH_DURATION_MS } from "./constants.js";
+import type { SlotId } from "./protocol.js";
+import type { MatchPhase, SessionCommand } from "./session.js";
 import {
   createInitialState,
   createSnapshot,
@@ -16,7 +16,7 @@ import {
   updateProjectiles,
   updateStructures,
   type SoloRuntimeState
-} from "./solo-session";
+} from "./solo-session/index.js";
 
 export interface SoloRulesEngineOptions {
   botEnabled?: boolean;

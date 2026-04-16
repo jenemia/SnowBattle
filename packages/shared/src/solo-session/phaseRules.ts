@@ -4,9 +4,9 @@ import {
   SOLO_MATCH_DURATION_MS,
   SOLO_WHITEOUT_START_MS,
   SOLO_WHITEOUT_TARGET_RADIUS
-} from "../constants";
-import type { MatchPhase, SessionResultSnapshot } from "../session";
-import type { SoloRuntimeState } from "./runtimeTypes";
+} from "../constants.js";
+import type { MatchPhase, SessionResultSnapshot } from "../session.js";
+import type { SoloRuntimeState } from "./runtimeTypes.js";
 
 export function getCurrentPhase(runtime: SoloRuntimeState): MatchPhase {
   if (runtime.elapsedMs >= SOLO_FINAL_PUSH_START_MS) {

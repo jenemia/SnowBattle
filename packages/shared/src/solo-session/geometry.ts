@@ -1,4 +1,4 @@
-import { SOLO_WALL_HALF_DEPTH, SOLO_WALL_HALF_WIDTH } from "../constants";
+import { SOLO_WALL_HALF_DEPTH, SOLO_WALL_HALF_WIDTH } from "../constants.js";
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));

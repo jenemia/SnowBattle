@@ -10,10 +10,10 @@ import {
   SOLO_SNOW_LOAD_SLOW_PER_20,
   SOLO_WHITEOUT_CENTER_CONTROL_RADIUS,
   SOLO_WHITEOUT_PLAYER_DAMAGE_PER_SECOND
-} from "../constants";
-import type { MatchPhase } from "../session";
-import { clamp, circleIntersectsWall } from "./geometry";
-import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes";
+} from "../constants.js";
+import type { MatchPhase } from "../session.js";
+import { clamp, circleIntersectsWall } from "./geometry.js";
+import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
 
 export function updatePlayers(
   runtime: SoloRuntimeState,

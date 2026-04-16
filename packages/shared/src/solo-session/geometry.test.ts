@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { circleIntersectsWall, segmentHitsWall } from "./geometry";
+import { circleIntersectsWall, segmentHitsWall } from "./geometry.js";
 
 describe("solo-session geometry", () => {
   it("detects circle overlap against wall bounds", () => {

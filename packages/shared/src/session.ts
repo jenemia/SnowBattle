@@ -1,4 +1,4 @@
-import type { MatchLifecycle, SlotId } from "./protocol";
+import type { MatchLifecycle, SlotId } from "./protocol.js";
 
 export type BuildType = "wall" | "snowman_turret" | "heater_beacon";
 

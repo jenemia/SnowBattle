@@ -1,7 +1,7 @@
-import { PLAYER_SPAWN_OFFSET, SOLO_MAX_PACKED_SNOW } from "../constants";
-import type { SlotId } from "../protocol";
-import type { SoloRulesEngineOptions } from "../soloSession";
-import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes";
+import { PLAYER_SPAWN_OFFSET, SOLO_MAX_PACKED_SNOW } from "../constants.js";
+import type { SlotId } from "../protocol.js";
+import type { SoloRulesEngineOptions } from "../soloSession.js";
+import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
 
 function createPlayer(
   slot: SlotId,

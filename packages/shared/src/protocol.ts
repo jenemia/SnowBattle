@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SessionCommand, SessionSnapshot } from "./session";
+import type { SessionCommand, SessionSnapshot } from "./session.js";
 
 export const slotSchema = z.enum(["A", "B"]);
 export type SlotId = z.infer<typeof slotSchema>;

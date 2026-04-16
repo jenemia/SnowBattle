@@ -1,8 +1,8 @@
-import type { MatchLifecycle } from "../protocol";
-import type { SessionMatchSnapshot, SessionSnapshot } from "../session";
-import { getCurrentPhase, getTimeRemainingMs, getWhiteoutRadius } from "./phaseRules";
-import { isBuildPreviewValid } from "./buildRules";
-import type { SoloRuntimeState } from "./runtimeTypes";
+import type { MatchLifecycle } from "../protocol.js";
+import type { SessionMatchSnapshot, SessionSnapshot } from "../session.js";
+import { getCurrentPhase, getTimeRemainingMs, getWhiteoutRadius } from "./phaseRules.js";
+import { isBuildPreviewValid } from "./buildRules.js";
+import type { SoloRuntimeState } from "./runtimeTypes.js";
 
 export function createSnapshot(
   runtime: SoloRuntimeState,

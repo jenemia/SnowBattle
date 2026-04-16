@@ -5,9 +5,9 @@ import {
   SOLO_FINAL_PUSH_START_MS,
   SOLO_MATCH_DURATION_MS,
   SOLO_WHITEOUT_START_MS
-} from "./constants";
-import { SoloRulesEngine } from "./soloSession";
-import type { SlotId } from "./protocol";
+} from "./constants.js";
+import { SoloRulesEngine } from "./soloSession.js";
+import type { SlotId } from "./protocol.js";
 
 type RuntimeAccess = {
   runtime: {

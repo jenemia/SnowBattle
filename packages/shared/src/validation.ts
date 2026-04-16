@@ -1,7 +1,7 @@
 import type { z } from "zod";
 
-import { clientMessageSchemas } from "./protocol";
-import type { ClientMessageType, ClientPayloadMap } from "./protocol";
+import { clientMessageSchemas } from "./protocol.js";
+import type { ClientMessageType, ClientPayloadMap } from "./protocol.js";
 
 export function parseClientMessage<TType extends ClientMessageType>(
   type: TType,

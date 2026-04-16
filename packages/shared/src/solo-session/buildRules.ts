@@ -14,13 +14,13 @@ import {
   SOLO_WALL_COST,
   SOLO_WALL_DURATION_MS,
   SOLO_WALL_HP
-} from "../constants";
-import type { BuildType, MatchPhase } from "../session";
+} from "../constants.js";
+import type { BuildType, MatchPhase } from "../session.js";
 import type {
   PlayerRuntimeState,
   SoloRuntimeState,
   StructureRuntimeState
-} from "./runtimeTypes";
+} from "./runtimeTypes.js";
 
 const HEATER_OR_TURRET_LIMIT = 1;
 

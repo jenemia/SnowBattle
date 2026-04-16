@@ -4,15 +4,15 @@ import {
   SOLO_SNOWMAN_TURRET_LOAD,
   SOLO_SNOWMAN_TURRET_RANGE,
   SOLO_WHITEOUT_STRUCTURE_DAMAGE_PER_SECOND
-} from "../constants";
-import type { BuildType, MatchPhase } from "../session";
-import { createStructureState, getBuildCost, getStructureMaxCount, isBuildPreviewValid } from "./buildRules";
-import { segmentHitsWall } from "./geometry";
+} from "../constants.js";
+import type { BuildType, MatchPhase } from "../session.js";
+import { createStructureState, getBuildCost, getStructureMaxCount, isBuildPreviewValid } from "./buildRules.js";
+import { segmentHitsWall } from "./geometry.js";
 import type {
   PlayerRuntimeState,
   SoloRuntimeState,
   StructureRuntimeState
-} from "./runtimeTypes";
+} from "./runtimeTypes.js";
 
 export function trySpawnStructure(
   runtime: SoloRuntimeState,
