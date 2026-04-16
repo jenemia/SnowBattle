@@ -1,13 +1,27 @@
 import {
   ARENA_HALF_EXTENT,
+  FIRE_COOLDOWN_MS,
   MATCH_DURATION_MS,
+  PLAYER_SPEED,
   PLAYER_SPAWN_OFFSET,
+  PROJECTILE_SPEED,
+  PROJECTILE_TTL_MS,
   PROJECTILE_SPAWN_DISTANCE,
   SOLO_BUILD_COOLDOWN_MS,
   SOLO_MAX_PACKED_SNOW,
+  SOLO_MAX_SLOW_PENALTY,
+  SOLO_PACKED_SNOW_ON_DIRECT_HIT,
+  SOLO_PACKED_SNOW_REGEN_PER_SECOND,
+  SOLO_SNOWBALL_DAMAGE,
+  SOLO_SNOWBALL_LOAD,
   SOLO_SNOWBALL_RANGE,
+  SOLO_SNOW_LOAD_MELT_DELAY_MS,
+  SOLO_SNOW_LOAD_MELT_PER_SECOND,
+  SOLO_SNOW_LOAD_SLOW_PER_20,
   SOLO_WALL_BLOCK_RADIUS,
-  SOLO_WALL_COST
+  SOLO_WALL_COST,
+  SOLO_WALL_DURATION_MS,
+  SOLO_WALL_HP
 } from "./constants";
 import type {
   MatchPhase,
@@ -15,6 +29,7 @@ import type {
   SessionMatchSnapshot,
   SessionPlayerSnapshot,
   SessionProjectileSnapshot,
+  SessionResultSnapshot,
   SessionSnapshot,
   SessionStructureSnapshot
 } from "./session";
@@ -23,9 +38,12 @@ import type { SlotId } from "./protocol";
 interface PlayerRuntimeState extends SessionPlayerSnapshot {
   aimX: number;
   aimZ: number;
+  fireCooldownRemaining: number;
+  lastHitAt: number | null;
   moveX: number;
   moveZ: number;
   pointerActive: boolean;
+  totalDirectDamageDealt: number;
 }
 
 interface ProjectileRuntimeState extends SessionProjectileSnapshot {
@@ -35,11 +53,14 @@ interface ProjectileRuntimeState extends SessionProjectileSnapshot {
 }
 
 export interface SoloRulesEngineOptions {
+  botEnabled?: boolean;
   localSlot?: SlotId;
 }
 
 export class SoloRulesEngine {
+  private readonly botEnabled: boolean;
   private elapsedMs = 0;
+  private latestResult: SessionResultSnapshot | null = null;
   private latestSnapshot: SessionSnapshot;
   private projectileCounter = 0;
   private readonly localSlot: SlotId;
@@ -48,6 +69,7 @@ export class SoloRulesEngine {
   private readonly structures = new Map<string, SessionStructureSnapshot>();
 
   constructor(options: SoloRulesEngineOptions = {}) {
+    this.botEnabled = options.botEnabled ?? true;
     this.localSlot = options.localSlot ?? "A";
     this.players = {
       A: this.createPlayer("A", 0, PLAYER_SPAWN_OFFSET),
@@ -58,6 +80,10 @@ export class SoloRulesEngine {
 
   receiveCommand(slot: SlotId, command: SessionCommand) {
     const player = this.players[slot];
+
+    if (this.latestResult !== null) {
+      return;
+    }
 
     if (command.type === "input:update") {
       player.moveX = command.payload.moveX;
@@ -89,23 +115,58 @@ export class SoloRulesEngine {
   }
 
   tick(deltaMs: number) {
+    if (this.latestResult !== null) {
+      this.latestSnapshot = this.createSnapshot();
+      return;
+    }
+
     this.elapsedMs = Math.min(MATCH_DURATION_MS, this.elapsedMs + deltaMs);
+    const localPlayer = this.players[this.localSlot];
+    const opponentPlayer = this.players[this.localSlot === "A" ? "B" : "A"];
+    const deltaSeconds = deltaMs / 1000;
+
+    if (this.botEnabled) {
+      this.updateBot(opponentPlayer, localPlayer);
+    }
 
     for (const player of Object.values(this.players)) {
       player.buildCooldownRemaining = Math.max(0, player.buildCooldownRemaining - deltaMs);
+      player.fireCooldownRemaining = Math.max(0, player.fireCooldownRemaining - deltaMs);
       player.packedSnow = Math.min(
         SOLO_MAX_PACKED_SNOW,
-        player.packedSnow + (deltaMs / 1000) * 5
+        player.packedSnow + deltaSeconds * SOLO_PACKED_SNOW_REGEN_PER_SECOND
       );
 
-      const nextX = clamp(player.x + player.moveX * (deltaMs / 1000) * 8, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT);
-      const nextZ = clamp(player.z + player.moveZ * (deltaMs / 1000) * 8, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT);
+      if (
+        player.lastHitAt !== null &&
+        this.elapsedMs - player.lastHitAt >= SOLO_SNOW_LOAD_MELT_DELAY_MS
+      ) {
+        player.snowLoad = Math.max(
+          0,
+          player.snowLoad - deltaSeconds * SOLO_SNOW_LOAD_MELT_PER_SECOND
+        );
+      }
 
-      player.x = nextX;
-      player.z = nextZ;
+      player.slowMultiplier = 1 - getSlowPenalty(player.snowLoad);
+
+      const moveSpeed = PLAYER_SPEED * player.slowMultiplier;
+      player.x = clamp(
+        player.x + player.moveX * deltaSeconds * moveSpeed,
+        -ARENA_HALF_EXTENT,
+        ARENA_HALF_EXTENT
+      );
+      player.z = clamp(
+        player.z + player.moveZ * deltaSeconds * moveSpeed,
+        -ARENA_HALF_EXTENT,
+        ARENA_HALF_EXTENT
+      );
 
       const aimX = player.pointerActive ? player.aimX - player.x : 0;
-      const aimZ = player.pointerActive ? player.aimZ - player.z : player.slot === "A" ? -1 : 1;
+      const aimZ = player.pointerActive
+        ? player.aimZ - player.z
+        : player.slot === "A"
+          ? -1
+          : 1;
 
       if (Math.hypot(aimX, aimZ) > 0.001) {
         player.facingAngle = Math.atan2(aimX, aimZ);
@@ -113,14 +174,45 @@ export class SoloRulesEngine {
     }
 
     for (const projectile of this.projectiles.values()) {
-      const deltaSeconds = deltaMs / 1000;
       projectile.x += projectile.vx * deltaSeconds;
       projectile.z += projectile.vz * deltaSeconds;
-      projectile.traveled += Math.hypot(projectile.vx * deltaSeconds, projectile.vz * deltaSeconds);
+      projectile.traveled += Math.hypot(
+        projectile.vx * deltaSeconds,
+        projectile.vz * deltaSeconds
+      );
 
-      if (projectile.traveled >= SOLO_SNOWBALL_RANGE) {
+      if (
+        projectile.traveled >= SOLO_SNOWBALL_RANGE ||
+        projectile.expiresAt <= this.elapsedMs
+      ) {
+        this.projectiles.delete(projectile.id);
+        continue;
+      }
+
+      const target = this.players[projectile.ownerSlot === "A" ? "B" : "A"];
+      const hitDistance = Math.hypot(projectile.x - target.x, projectile.z - target.z);
+
+      if (hitDistance <= 1.2) {
+        this.applyDirectHit(this.players[projectile.ownerSlot], target);
         this.projectiles.delete(projectile.id);
       }
+    }
+
+    if (localPlayer.hp <= 0 || opponentPlayer.hp <= 0) {
+      this.latestResult = {
+        winnerSlot: localPlayer.hp > 0 ? localPlayer.slot : opponentPlayer.slot,
+        reason: "elimination"
+      };
+    } else if (this.elapsedMs >= MATCH_DURATION_MS) {
+      this.latestResult = {
+        winnerSlot:
+          localPlayer.hp === opponentPlayer.hp
+            ? null
+            : localPlayer.hp > opponentPlayer.hp
+              ? localPlayer.slot
+              : opponentPlayer.slot,
+        reason: "timeout"
+      };
     }
 
     this.latestSnapshot = this.createSnapshot();
@@ -144,15 +236,20 @@ export class SoloRulesEngine {
       facingAngle: slot === "A" ? Math.PI : 0,
       aimX: x,
       aimZ: z - 1,
+      fireCooldownRemaining: 0,
+      lastHitAt: null,
       moveX: 0,
       moveZ: 0,
-      pointerActive: false
+      pointerActive: false,
+      totalDirectDamageDealt: 0
     };
   }
 
   private createSnapshot(): SessionSnapshot {
-    const localPlayer = this.players[this.localSlot];
-    const opponentPlayer = this.players[this.localSlot === "A" ? "B" : "A"];
+    const localPlayer = { ...this.players[this.localSlot] };
+    const opponentPlayer = {
+      ...this.players[this.localSlot === "A" ? "B" : "A"]
+    };
     const match = this.createMatchSnapshot();
 
     return {
@@ -173,14 +270,14 @@ export class SoloRulesEngine {
         cursorX: localPlayer.aimX,
         cursorZ: localPlayer.aimZ,
         pointerActive: localPlayer.pointerActive,
-        result: null
+        result: this.latestResult
       }
     };
   }
 
   private createMatchSnapshot(): SessionMatchSnapshot {
     const timeRemainingMs = Math.max(0, MATCH_DURATION_MS - this.elapsedMs);
-    const phase: MatchPhase = "standard";
+    const phase: MatchPhase = this.latestResult === null ? "standard" : "finished";
 
     return {
       phase,
@@ -192,6 +289,10 @@ export class SoloRulesEngine {
   }
 
   private trySpawnProjectile(player: PlayerRuntimeState) {
+    if (player.fireCooldownRemaining > 0) {
+      return;
+    }
+
     const aimX = player.aimX - player.x;
     const aimZ = player.aimZ - player.z;
     const length = Math.hypot(aimX, aimZ);
@@ -210,11 +311,12 @@ export class SoloRulesEngine {
       ownerSlot: player.slot,
       x: player.x + directionX * PROJECTILE_SPAWN_DISTANCE,
       z: player.z + directionZ * PROJECTILE_SPAWN_DISTANCE,
-      vx: directionX * 18,
-      vz: directionZ * 18,
+      vx: directionX * PROJECTILE_SPEED,
+      vz: directionZ * PROJECTILE_SPEED,
       traveled: 0,
-      expiresAt: this.elapsedMs + 2_200
+      expiresAt: this.elapsedMs + PROJECTILE_TTL_MS
     });
+    player.fireCooldownRemaining = FIRE_COOLDOWN_MS;
   }
 
   private trySpawnWall(player: PlayerRuntimeState) {
@@ -233,12 +335,24 @@ export class SoloRulesEngine {
       ownerSlot: player.slot,
       x: player.aimX,
       z: player.aimZ,
-      hp: 120,
-      expiresAt: this.elapsedMs + 14_000,
+      hp: SOLO_WALL_HP,
+      expiresAt: this.elapsedMs + SOLO_WALL_DURATION_MS,
       enabled: true
     });
     player.buildCooldownRemaining = SOLO_BUILD_COOLDOWN_MS;
     player.packedSnow -= SOLO_WALL_COST;
+  }
+
+  private applyDirectHit(source: PlayerRuntimeState, target: PlayerRuntimeState) {
+    target.hp = Math.max(0, target.hp - SOLO_SNOWBALL_DAMAGE);
+    target.snowLoad = clamp(target.snowLoad + SOLO_SNOWBALL_LOAD, 0, 100);
+    target.lastHitAt = this.elapsedMs;
+    target.slowMultiplier = 1 - getSlowPenalty(target.snowLoad);
+    source.packedSnow = Math.min(
+      SOLO_MAX_PACKED_SNOW,
+      source.packedSnow + SOLO_PACKED_SNOW_ON_DIRECT_HIT
+    );
+    source.totalDirectDamageDealt += SOLO_SNOWBALL_DAMAGE;
   }
 
   private isBuildPreviewValid(player: PlayerRuntimeState) {
@@ -261,8 +375,49 @@ export class SoloRulesEngine {
         Math.abs(structure.z - player.aimZ) < SOLO_WALL_BLOCK_RADIUS
     );
   }
+
+  private updateBot(bot: PlayerRuntimeState, target: PlayerRuntimeState) {
+    const dx = target.x - bot.x;
+    const dz = target.z - bot.z;
+    const distance = Math.hypot(dx, dz);
+    const directionX = distance > 0 ? dx / distance : 0;
+    const directionZ = distance > 0 ? dz / distance : 0;
+    const strafeSign = Math.sin(this.elapsedMs / 700) >= 0 ? 1 : -1;
+
+    bot.aimX = target.x;
+    bot.aimZ = target.z;
+    bot.pointerActive = true;
+
+    if (distance > 8.5) {
+      bot.moveX = directionX;
+      bot.moveZ = directionZ;
+    } else if (distance < 5.5) {
+      bot.moveX = -directionX * 0.7 + strafeSign * directionZ * 0.5;
+      bot.moveZ = -directionZ * 0.7 - strafeSign * directionX * 0.5;
+    } else {
+      bot.moveX = strafeSign * directionZ * 0.7;
+      bot.moveZ = -strafeSign * directionX * 0.7;
+    }
+
+    const length = Math.hypot(bot.moveX, bot.moveZ);
+    if (length > 0.001) {
+      bot.moveX /= length;
+      bot.moveZ /= length;
+    }
+
+    if (distance <= SOLO_SNOWBALL_RANGE && bot.fireCooldownRemaining <= 0) {
+      this.trySpawnProjectile(bot);
+    }
+  }
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getSlowPenalty(snowLoad: number) {
+  return Math.min(
+    SOLO_MAX_SLOW_PENALTY,
+    (snowLoad / 20) * SOLO_SNOW_LOAD_SLOW_PER_20
+  );
 }

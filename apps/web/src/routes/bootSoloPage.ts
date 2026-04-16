@@ -82,6 +82,7 @@ export function bootSoloPage(root: HTMLDivElement) {
                 <strong id="solo-bonfire" data-testid="solo-bonfire">idle</strong>
               </div>
             </div>
+            <div class="result" id="solo-result" data-testid="solo-result"></div>
             <div class="solo-readout" id="solo-readout" data-testid="solo-readout">
               Local solo provider connected.
             </div>
@@ -102,6 +103,7 @@ export function bootSoloPage(root: HTMLDivElement) {
   const projectiles = root.querySelector<HTMLElement>("#solo-projectiles");
   const opponentHp = root.querySelector<HTMLElement>("#solo-opponent-hp");
   const bonfire = root.querySelector<HTMLElement>("#solo-bonfire");
+  const result = root.querySelector<HTMLElement>("#solo-result");
   const snowLoad = root.querySelector<HTMLElement>("#solo-snow-load");
   const status = root.querySelector<HTMLElement>("#solo-status");
   const mode = root.querySelector<HTMLElement>("#solo-mode");
@@ -121,6 +123,7 @@ export function bootSoloPage(root: HTMLDivElement) {
     !projectiles ||
     !opponentHp ||
     !bonfire ||
+    !result ||
     !snowLoad ||
     !status ||
     !mode ||
@@ -161,8 +164,21 @@ export function bootSoloPage(root: HTMLDivElement) {
           : "Placement blocked";
     structures.textContent = String(snapshot.structures.length);
     time.textContent = `${(snapshot.match.timeRemainingMs / 1000).toFixed(1)}s`;
+    result.textContent = snapshot.hud.result
+      ? snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot
+        ? `Victory · ${snapshot.hud.result.reason}`
+        : snapshot.hud.result.winnerSlot === null
+          ? `Draw · ${snapshot.hud.result.reason}`
+          : `Defeat · ${snapshot.hud.result.reason}`
+      : "";
     readout.textContent =
-      snapshot.localPlayer.selectedBuild === null
+      snapshot.hud.result
+        ? snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot
+          ? "Round complete. The local run resolved in your favor."
+          : snapshot.hud.result.winnerSlot === null
+            ? "Round complete. The local run ended in a draw."
+            : "Round complete. Reset the page or keep iterating on the local duel."
+        : snapshot.localPlayer.selectedBuild === null
         ? "Combat mode. Aim with the cursor and click to throw."
         : snapshot.hud.buildPreviewValid
           ? `Build ${snapshot.localPlayer.selectedBuild}. Click to place.`
