@@ -1,0 +1,9 @@
+export const ARENA_HALF_EXTENT = 22;
+export const COUNTDOWN_MS = 3000;
+export const MATCH_DURATION_MS = 90_000;
+export const PLAYER_SPEED = 9;
+export const PROJECTILE_SPEED = 18;
+export const PROJECTILE_TTL_MS = 2200;
+export const FIRE_COOLDOWN_MS = 650;
+export const SERVER_TICK_RATE = 20;
+export const HEARTBEAT_INTERVAL_MS = 5000;

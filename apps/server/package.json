@@ -1,0 +1,20 @@
+{
+  "name": "@snowbattle/server",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@colyseus/ws-transport": "^0.17.13",
+    "@snowbattle/shared": "0.1.0",
+    "colyseus": "^0.17.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0"
+  }
+}
