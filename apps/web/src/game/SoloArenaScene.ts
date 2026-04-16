@@ -75,9 +75,7 @@ export class SoloArenaScene {
   }
 
   private renderFrame() {
-    if (this.latestSnapshot) {
-      this.cameraController.update(this.latestSnapshot, this.clock.getDelta());
-    }
+    this.cameraController.update(this.latestSnapshot, this.clock.getDelta());
 
     this.renderer.render(this.scene, this.cameraController.camera);
   }

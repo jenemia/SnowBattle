@@ -37,6 +37,31 @@ test("two browser clients stay in sync through the shared duel provider", async 
   await expect(pageA.getByTestId("multiplayer-opponent-name")).toHaveText("Beta");
   await expect(pageB.getByTestId("multiplayer-local-name")).toHaveText("Beta");
   await expect(pageB.getByTestId("multiplayer-opponent-name")).toHaveText("Alpha");
+  await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Combat");
+  await expect(pageA.getByTestId("multiplayer-phase")).toHaveText("standard");
+  await expect(pageA.getByTestId("multiplayer-build")).toHaveText("combat");
+  await expect(pageA.getByTestId("multiplayer-readout")).toContainText("Combat mode");
+
+  const viewportA = pageA.getByTestId("multiplayer-viewport");
+  const viewportBoxA = await viewportA.boundingBox();
+
+  if (!viewportBoxA) {
+    throw new Error("Viewport bounds unavailable for page A");
+  }
+
+  const structuresBeforeA = await readCounter(pageA, "multiplayer-structures");
+  const structuresBeforeB = await readCounter(pageB, "multiplayer-structures");
+  await pageA.keyboard.press("1");
+  await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Build");
+  await expect(pageA.getByTestId("multiplayer-build")).toHaveText("wall");
+  await placeBuild(pageA, viewportBoxA, structuresBeforeA, "multiplayer-structures");
+  await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Combat");
+  await expect
+    .poll(async () => await readCounter(pageA, "multiplayer-structures"))
+    .toBeGreaterThan(structuresBeforeA);
+  await expect
+    .poll(async () => await readCounter(pageB, "multiplayer-structures"))
+    .toBeGreaterThan(structuresBeforeB);
 
   const before = await pageB.getByTestId("multiplayer-opponent-state").textContent();
 
@@ -127,4 +152,35 @@ async function readDebugState(page: Page) {
     statusDetail: statusDetail ?? "",
     statusStage: statusStage ?? ""
   };
+}
+
+async function placeBuild(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  initialStructures: number,
+  structuresTestId: string
+) {
+  const columns = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+  const rows = [0.25, 0.35, 0.45, 0.55, 0.65, 0.75];
+
+  for (const row of rows) {
+    for (const column of columns) {
+      const point = {
+        x: box.x + box.width * column,
+        y: box.y + box.height * row
+      };
+      await page.mouse.click(point.x, point.y);
+      await page.waitForTimeout(100);
+
+      if ((await readCounter(page, structuresTestId)) > initialStructures) {
+        return;
+      }
+    }
+  }
+
+  throw new Error("Could not place a build in the duel viewport");
+}
+
+async function readCounter(page: Page, testId: string) {
+  return parseInt((await page.getByTestId(testId).textContent()) ?? "0", 10);
 }

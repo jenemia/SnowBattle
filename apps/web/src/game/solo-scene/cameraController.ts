@@ -8,25 +8,37 @@ const CAMERA_OFFSET_Z = 22;
 
 export class SoloSceneCameraController {
   readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 250);
+  private readonly idleCameraPosition = new THREE.Vector3(0, CAMERA_HEIGHT, CAMERA_OFFSET_Z);
+  private readonly idleLookTarget = new THREE.Vector3(0, 1.5, 0.4);
   private readonly raycaster = new THREE.Raycaster();
   private readonly screenNdc = new THREE.Vector2();
   private readonly scratchCameraPosition = new THREE.Vector3();
   private readonly scratchLookTarget = new THREE.Vector3();
 
-  update(snapshot: SessionSnapshot, delta: number) {
-    const focusX =
-      snapshot.localPlayer.x +
-      (snapshot.hud.cursorX - snapshot.localPlayer.x) * 0.32;
-    const focusZ =
-      snapshot.localPlayer.z +
-      (snapshot.hud.cursorZ - snapshot.localPlayer.z) * 0.32;
+  constructor() {
+    this.camera.position.copy(this.idleCameraPosition);
+    this.camera.lookAt(this.idleLookTarget);
+  }
 
-    this.scratchCameraPosition.set(
-      snapshot.localPlayer.x,
-      CAMERA_HEIGHT,
-      snapshot.localPlayer.z + CAMERA_OFFSET_Z
-    );
-    this.scratchLookTarget.set(focusX, 1.5, focusZ + 0.4);
+  update(snapshot: SessionSnapshot | null, delta: number) {
+    if (snapshot) {
+      const focusX =
+        snapshot.localPlayer.x +
+        (snapshot.hud.cursorX - snapshot.localPlayer.x) * 0.32;
+      const focusZ =
+        snapshot.localPlayer.z +
+        (snapshot.hud.cursorZ - snapshot.localPlayer.z) * 0.32;
+
+      this.scratchCameraPosition.set(
+        snapshot.localPlayer.x,
+        CAMERA_HEIGHT,
+        snapshot.localPlayer.z + CAMERA_OFFSET_Z
+      );
+      this.scratchLookTarget.set(focusX, 1.5, focusZ + 0.4);
+    } else {
+      this.scratchCameraPosition.copy(this.idleCameraPosition);
+      this.scratchLookTarget.copy(this.idleLookTarget);
+    }
 
     this.camera.position.lerp(
       this.scratchCameraPosition,

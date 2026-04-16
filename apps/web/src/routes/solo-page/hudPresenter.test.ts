@@ -2,20 +2,28 @@ import { describe, expect, it } from "vitest";
 
 import type { SessionSnapshot } from "@snowbattle/shared";
 
-import { presentSoloHud } from "./hudPresenter";
+import { presentDuelHud, presentSoloHud } from "./hudPresenter";
 
 describe("presentSoloHud", () => {
-  it("formats combat state for the HUD", () => {
-    const hud = presentSoloHud(createSnapshot());
+  it("shares combat telemetry across solo and duel while keeping action copy separate", () => {
+    const snapshot = createSnapshot();
+    const soloHud = presentSoloHud(snapshot);
+    const duelHud = presentDuelHud(snapshot);
 
-    expect(hud.statusText).toBe("Combat");
-    expect(hud.modeText).toBe("Throw ready");
-    expect(hud.buildText).toBe("combat");
-    expect(hud.resetDisabled).toBe(true);
+    expect(soloHud.statusText).toBe("Combat");
+    expect(soloHud.modeText).toBe("Throw ready");
+    expect(soloHud.buildText).toBe("combat");
+    expect(soloHud.actionDisabled).toBe(true);
+    expect(duelHud.statusText).toBe(soloHud.statusText);
+    expect(duelHud.modeText).toBe(soloHud.modeText);
+    expect(duelHud.timeText).toBe(soloHud.timeText);
+    expect(duelHud.cooldownText).toBe(soloHud.cooldownText);
+    expect(duelHud.actionText).toBe("Requeue");
+    expect(soloHud.actionText).toBe("Restart round");
   });
 
-  it("formats resolved result state for the HUD", () => {
-    const hud = presentSoloHud(
+  it("formats resolved result state for solo and duel surfaces", () => {
+    const snapshot =
       createSnapshot({
         hud: {
           result: {
@@ -27,11 +35,18 @@ describe("presentSoloHud", () => {
           phase: "finished"
         }
       })
-    );
+    ;
+    const soloHud = presentSoloHud(snapshot);
+    const duelHud = presentDuelHud(snapshot);
 
-    expect(hud.statusText).toBe("Complete");
-    expect(hud.resultText).toBe("Victory · timeout");
-    expect(hud.resetDisabled).toBe(false);
+    expect(soloHud.statusText).toBe("Complete");
+    expect(soloHud.resultText).toBe("Victory · timeout");
+    expect(soloHud.actionDisabled).toBe(false);
+    expect(duelHud.resultText).toBe("Victory · timeout");
+    expect(duelHud.actionText).toBe("Requeue");
+    expect(duelHud.readoutText).toBe(
+      "Round complete. Requeue whenever you want another live duel."
+    );
   });
 });
 

@@ -1,22 +1,16 @@
 import {
   COUNTDOWN_MS,
-  type BuildType,
+  type GameSessionProvider,
   type SessionProviderEvent,
   type SessionSnapshot
 } from "@snowbattle/shared";
 
-import { ThreeArena } from "../game/ThreeArena";
 import { ColyseusSessionProvider } from "../providers/ColyseusSessionProvider";
-
-const BUILD_KEY_TO_TYPE: Record<string, BuildType> = {
-  "1": "wall",
-  "2": "snowman_turret",
-  "3": "heater_beacon"
-};
+import { mountGameSession, presentDuelHud, renderSessionHud } from "./solo-page";
 
 export function bootMultiplayerPage(root: HTMLDivElement) {
   root.innerHTML = `
-    <div class="shell">
+    <div class="shell shell--duel">
       <section class="hero">
         <div class="eyebrow">Vibe Jam Ready · Instant Browser Duel</div>
         <h1 class="title">Snow<span>Battle</span></h1>
@@ -66,8 +60,8 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
             <button class="primary-button" id="requeue-button" disabled>Requeue</button>
           </div>
           <div class="panel panel-stack">
-            <div class="panel">
-              <h3>Duel Feed</h3>
+            <div class="panel panel--solo">
+              <h3>Live Duel</h3>
               <div class="grid players">
                 <article class="player-card">
                   <h4>You</h4>
@@ -80,13 +74,72 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
                   <span id="player-b-state" data-testid="multiplayer-opponent-state">Not connected</span>
                 </article>
               </div>
-            </div>
-            <div class="panel">
-              <h3>Input Loop</h3>
+              <div class="status-line">
+                <span class="status-pill" id="multiplayer-session-status" data-testid="multiplayer-session-status">Combat</span>
+                <span id="multiplayer-session-mode" data-testid="multiplayer-session-mode">Mode ready</span>
+              </div>
               <p class="hint">
-                This page now speaks only through a session provider. Colyseus is transport,
-                while the shared duel engine remains the gameplay authority.
+                Matchmaking and transport stay duel-specific. Once the round begins, the gameplay
+                surface is the same as solo.
               </p>
+              <div class="telemetry solo-stats">
+                <div>
+                  <span>Phase</span>
+                  <strong id="multiplayer-phase" data-testid="multiplayer-phase">standard</strong>
+                </div>
+                <div>
+                  <span>Time</span>
+                  <strong id="multiplayer-time" data-testid="multiplayer-time">180.0s</strong>
+                </div>
+                <div>
+                  <span>HP</span>
+                  <strong id="multiplayer-hp" data-testid="multiplayer-hp">100</strong>
+                </div>
+                <div>
+                  <span>Snow Load</span>
+                  <strong id="multiplayer-snow-load" data-testid="multiplayer-snow-load">0</strong>
+                </div>
+                <div>
+                  <span>Packed Snow</span>
+                  <strong id="multiplayer-packed-snow" data-testid="multiplayer-packed-snow">100</strong>
+                </div>
+                <div>
+                  <span>Build</span>
+                  <strong id="multiplayer-build" data-testid="multiplayer-build">combat</strong>
+                </div>
+              </div>
+              <div class="solo-debug" id="multiplayer-cursor" data-testid="multiplayer-cursor">0.0 / 0.0</div>
+              <div class="solo-debug" id="multiplayer-position" data-testid="multiplayer-position">0.0 / 0.0</div>
+              <div class="telemetry solo-stats">
+                <div>
+                  <span>Cooldown</span>
+                  <strong id="multiplayer-cooldown" data-testid="multiplayer-cooldown">0.00s</strong>
+                </div>
+                <div>
+                  <span>Structures</span>
+                  <strong id="multiplayer-structures" data-testid="multiplayer-structures">0</strong>
+                </div>
+                <div>
+                  <span>Projectiles</span>
+                  <strong id="multiplayer-projectiles" data-testid="multiplayer-projectiles">0</strong>
+                </div>
+                <div>
+                  <span>Opponent HP</span>
+                  <strong id="multiplayer-opponent-hp" data-testid="multiplayer-opponent-hp">100</strong>
+                </div>
+                <div>
+                  <span>Preview</span>
+                  <strong id="multiplayer-preview" data-testid="multiplayer-preview">blocked</strong>
+                </div>
+                <div>
+                  <span>Bonfire</span>
+                  <strong id="multiplayer-bonfire" data-testid="multiplayer-bonfire">idle</strong>
+                </div>
+              </div>
+              <div class="result" id="multiplayer-session-result" data-testid="multiplayer-session-result"></div>
+              <div class="solo-readout" id="multiplayer-readout" data-testid="multiplayer-readout">
+                Searching for a duel...
+              </div>
             </div>
           </div>
         </div>
@@ -111,6 +164,24 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const playerAState = root.querySelector<HTMLElement>("#player-a-state");
   const playerBName = root.querySelector<HTMLElement>("#player-b-name");
   const playerBState = root.querySelector<HTMLElement>("#player-b-state");
+  const sessionStatus = root.querySelector<HTMLElement>("#multiplayer-session-status");
+  const sessionMode = root.querySelector<HTMLElement>("#multiplayer-session-mode");
+  const phase = root.querySelector<HTMLElement>("#multiplayer-phase");
+  const time = root.querySelector<HTMLElement>("#multiplayer-time");
+  const hp = root.querySelector<HTMLElement>("#multiplayer-hp");
+  const snowLoad = root.querySelector<HTMLElement>("#multiplayer-snow-load");
+  const packedSnow = root.querySelector<HTMLElement>("#multiplayer-packed-snow");
+  const build = root.querySelector<HTMLElement>("#multiplayer-build");
+  const cursor = root.querySelector<HTMLElement>("#multiplayer-cursor");
+  const position = root.querySelector<HTMLElement>("#multiplayer-position");
+  const cooldown = root.querySelector<HTMLElement>("#multiplayer-cooldown");
+  const structures = root.querySelector<HTMLElement>("#multiplayer-structures");
+  const projectiles = root.querySelector<HTMLElement>("#multiplayer-projectiles");
+  const opponentHp = root.querySelector<HTMLElement>("#multiplayer-opponent-hp");
+  const preview = root.querySelector<HTMLElement>("#multiplayer-preview");
+  const bonfire = root.querySelector<HTMLElement>("#multiplayer-bonfire");
+  const sessionResult = root.querySelector<HTMLElement>("#multiplayer-session-result");
+  const readout = root.querySelector<HTMLElement>("#multiplayer-readout");
 
   if (
     !viewport ||
@@ -129,28 +200,64 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     !playerAName ||
     !playerAState ||
     !playerBName ||
-    !playerBState
+    !playerBState ||
+    !sessionStatus ||
+    !sessionMode ||
+    !phase ||
+    !time ||
+    !hp ||
+    !snowLoad ||
+    !packedSnow ||
+    !build ||
+    !cursor ||
+    !position ||
+    !cooldown ||
+    !structures ||
+    !projectiles ||
+    !opponentHp ||
+    !preview ||
+    !bonfire ||
+    !sessionResult ||
+    !readout
   ) {
     throw new Error("Missing multiplayer UI nodes");
   }
 
   const ui = {
+    bonfire,
+    build,
     countdown,
+    cooldown,
+    cursor,
     guestNameInput,
+    hp,
     lifecycle,
+    mode: sessionMode,
+    opponentHp,
+    packedSnow,
+    phase,
     playerAName,
     playerAState,
     playerBName,
     playerBState,
+    position,
+    preview,
+    projectiles,
     queueCount,
+    readout,
     requeueButton,
+    result: sessionResult,
     resultBanner,
     roomId,
     saveNameButton,
+    snowLoad,
+    status: sessionStatus,
     statusCode,
     statusDetail,
-    statusStage,
     statusPill,
+    statusStage,
+    structures,
+    time,
     viewport
   };
 
@@ -160,32 +267,47 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const serverUrl = resolveServerUrl();
   const isBackendConfigured = serverUrl.length > 0;
 
-  const arena = new ThreeArena(ui.viewport);
-  arena.start();
-
-  const movement = new Set<string>();
-  let pointerClientX = 0;
-  let pointerClientY = 0;
-  let pointerActive = false;
-
   const provider = isBackendConfigured
     ? new ColyseusSessionProvider(serverUrl, () => {
         return ui.guestNameInput.value.trim() || storedName;
       })
-    : null;
+    : createPreviewProvider();
 
-  provider?.subscribe((snapshot) => {
-    arena.applySnapshot(snapshot);
-    ui.lifecycle.textContent = snapshot.match.lifecycle;
-    renderPlayers(snapshot);
-    renderResult(snapshot);
-
-    if (snapshot.hud.result) {
-      ui.requeueButton.disabled = false;
-    }
+  mountGameSession({
+    autoConnect: false,
+    onSnapshot: (snapshot) => {
+      renderSessionHud(
+        {
+          actionButton: ui.requeueButton,
+          bonfire: ui.bonfire,
+          build: ui.build,
+          cooldown: ui.cooldown,
+          cursor: ui.cursor,
+          hp: ui.hp,
+          mode: ui.mode,
+          opponentHp: ui.opponentHp,
+          packedSnow: ui.packedSnow,
+          phase: ui.phase,
+          position: ui.position,
+          preview: ui.preview,
+          projectiles: ui.projectiles,
+          readout: ui.readout,
+          result: ui.result,
+          snowLoad: ui.snowLoad,
+          status: ui.status,
+          structures: ui.structures,
+          time: ui.time
+        },
+        presentDuelHud(snapshot)
+      );
+      ui.lifecycle.textContent = snapshot.match.lifecycle;
+      renderPlayers(snapshot, ui.playerAName, ui.playerAState, ui.playerBName, ui.playerBState);
+    },
+    provider,
+    viewport: ui.viewport
   });
 
-  provider?.subscribeEvent((event) => {
+  provider.subscribeEvent((event) => {
     handleProviderEvent(event, ui);
   });
 
@@ -201,15 +323,9 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     ui.requeueButton.disabled = true;
     ui.resultBanner.textContent = "";
     ui.resultBanner.classList.remove("danger");
-    await provider?.disconnect();
+    await provider.disconnect();
     await joinQueue();
   });
-
-  window.addEventListener("keydown", handleKeyDown);
-  window.addEventListener("keyup", handleKeyUp);
-  ui.viewport.addEventListener("pointermove", handlePointerMove);
-  ui.viewport.addEventListener("pointerdown", handlePointerDown);
-  ui.viewport.addEventListener("pointerleave", handlePointerLeave);
 
   if (isBackendConfigured) {
     void joinQueue();
@@ -220,12 +336,11 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     ui.lifecycle.textContent = "preview";
     ui.countdown.textContent = "--";
     ui.requeueButton.disabled = true;
+    ui.readout.textContent = "Preview mode. Configure a backend to play a live duel.";
   }
 
-  window.setInterval(() => sendInput(), 1000 / 20);
-
   async function joinQueue() {
-    if (!provider) {
+    if (!isBackendConfigured) {
       return;
     }
 
@@ -238,146 +353,19 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
       ui.requeueButton.disabled = false;
     }
   }
+}
 
-  function sendInput() {
-    if (!provider) {
-      return;
-    }
-
-    const { moveX, moveY } = currentMovementVector();
-    const worldPoint = pointerActive
-      ? arena.screenPointToWorld(pointerClientX, pointerClientY)
-      : null;
-
-    provider.send({
-      type: "input:update",
-      payload: {
-        aimX: worldPoint?.x ?? 0,
-        aimY: worldPoint?.z ?? 0,
-        moveX,
-        moveY,
-        pointerActive: worldPoint !== null
-      }
-    });
-  }
-
-  function currentMovementVector() {
-    const x =
-      Number(movement.has("d") || movement.has("ArrowRight")) -
-      Number(movement.has("a") || movement.has("ArrowLeft"));
-    const y =
-      Number(movement.has("s") || movement.has("ArrowDown")) -
-      Number(movement.has("w") || movement.has("ArrowUp"));
-    return { moveX: x, moveY: y };
-  }
-
-  function renderPlayers(snapshot: SessionSnapshot) {
-    ui.playerAName.textContent = snapshot.localPlayer.guestName;
-    ui.playerAState.textContent = `${snapshot.localPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.localPlayer.x.toFixed(1)}`;
-    ui.playerBName.textContent = snapshot.opponentPlayer.guestName;
-    ui.playerBState.textContent = `${snapshot.opponentPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.opponentPlayer.x.toFixed(1)}`;
-  }
-
-  function renderResult(snapshot: SessionSnapshot) {
-    const result = snapshot.hud.result;
-
-    if (!result) {
-      ui.resultBanner.textContent = "";
-      ui.resultBanner.classList.remove("danger");
-      return;
-    }
-
-    if (result.reason === "timeout") {
-      ui.resultBanner.textContent =
-        "Whiteout. No clean hit before the storm timer expired.";
-      ui.resultBanner.classList.remove("danger");
-      return;
-    }
-
-    const won = result.winnerSlot === snapshot.localPlayer.slot;
-    ui.resultBanner.textContent = won
-      ? "Direct hit. You won the duel."
-      : result.winnerSlot
-        ? result.reason === "forfeit"
-          ? "Opponent disengaged. You take the round."
-          : result.reason === "disconnect"
-            ? "Opponent disconnected. The round is yours."
-            : "Impact confirmed. Opponent took the round."
-        : "Round resolved without a winner.";
-    ui.resultBanner.classList.toggle("danger", !won && result.winnerSlot !== null);
-  }
-
-  function handleKeyDown(event: KeyboardEvent) {
-    const key = normalizeMovementKey(event.key);
-
-    if (key) {
-      event.preventDefault();
-      movement.add(key);
-      return;
-    }
-
-    const digitKey =
-      event.code === "Numpad1" ? "1" :
-      event.code === "Numpad2" ? "2" :
-      event.code === "Numpad3" ? "3" :
-      event.key;
-    const buildType = BUILD_KEY_TO_TYPE[digitKey];
-
-    if (buildType) {
-      if (event.repeat) {
-        event.preventDefault();
-        return;
-      }
-
-      event.preventDefault();
-      provider?.send({
-        type: "build:select",
-        payload: { buildType }
-      });
-      return;
-    }
-
-    if (event.key === "Escape") {
-      if (event.repeat) {
-        event.preventDefault();
-        return;
-      }
-
-      event.preventDefault();
-      provider?.send({ type: "build:cancel" });
-    }
-  }
-
-  function handleKeyUp(event: KeyboardEvent) {
-    const key = normalizeMovementKey(event.key);
-
-    if (key) {
-      event.preventDefault();
-      movement.delete(key);
-    }
-  }
-
-  function handlePointerMove(event: PointerEvent) {
-    pointerActive = true;
-    pointerClientX = event.clientX;
-    pointerClientY = event.clientY;
-  }
-
-  function handlePointerDown(event: PointerEvent) {
-    if (event.button !== 0) {
-      return;
-    }
-
-    pointerActive = true;
-    pointerClientX = event.clientX;
-    pointerClientY = event.clientY;
-    sendInput();
-    provider?.send({ type: "action:primary" });
-  }
-
-  function handlePointerLeave() {
-    pointerActive = false;
-  }
+function renderPlayers(
+  snapshot: SessionSnapshot,
+  localName: HTMLElement,
+  localState: HTMLElement,
+  opponentName: HTMLElement,
+  opponentState: HTMLElement
+) {
+  localName.textContent = snapshot.localPlayer.guestName;
+  localState.textContent = `${snapshot.localPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.localPlayer.x.toFixed(1)}`;
+  opponentName.textContent = snapshot.opponentPlayer.guestName;
+  opponentState.textContent = `${snapshot.opponentPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.opponentPlayer.x.toFixed(1)}`;
 }
 
 function handleProviderEvent(
@@ -386,13 +374,14 @@ function handleProviderEvent(
     countdown: HTMLElement;
     lifecycle: HTMLElement;
     queueCount: HTMLElement;
+    readout: HTMLElement;
     requeueButton: HTMLButtonElement;
     resultBanner: HTMLElement;
     roomId: HTMLElement;
     statusCode: HTMLElement;
     statusDetail: HTMLElement;
-    statusStage: HTMLElement;
     statusPill: HTMLElement;
+    statusStage: HTMLElement;
   }
 ) {
   if (event.type === "status") {
@@ -407,6 +396,10 @@ function handleProviderEvent(
         : "Backend connection failed.";
       ui.resultBanner.classList.add("danger");
       return;
+    }
+
+    if (event.code === "connected" || event.code === "queued") {
+      ui.readout.textContent = "Connected. Waiting for the shared duel to begin.";
     }
 
     if (event.code !== "disconnected") {
@@ -428,18 +421,21 @@ function handleProviderEvent(
   if (event.type === "match_found") {
     ui.roomId.textContent = `Room ${event.roomId}`;
     ui.countdown.textContent = `${Math.ceil(event.countdownFrom / 1000)}s`;
+    ui.readout.textContent = `Match found against ${event.opponentGuestName}.`;
     return;
   }
 
   if (event.type === "countdown") {
     ui.countdown.textContent = `${Math.ceil(event.remainingMs / 1000)}s`;
     ui.lifecycle.textContent = "countdown";
+    ui.readout.textContent = `Countdown ${Math.ceil(event.remainingMs / 1000)}s.`;
     ui.requeueButton.disabled = true;
     return;
   }
 
   if (event.type === "requeue") {
     ui.requeueButton.disabled = !event.available;
+    ui.readout.textContent = event.message;
   }
 }
 
@@ -469,19 +465,19 @@ function resolveServerUrl() {
   return isLocalHost ? "ws://localhost:2567" : "";
 }
 
-function normalizeMovementKey(key: string) {
-  const normalized = key.length === 1 ? key.toLowerCase() : key;
-
-  return [
-    "w",
-    "a",
-    "s",
-    "d",
-    "ArrowUp",
-    "ArrowDown",
-    "ArrowLeft",
-    "ArrowRight"
-  ].includes(normalized)
-    ? normalized
-    : null;
+function createPreviewProvider(): GameSessionProvider {
+  return {
+    connect() {},
+    disconnect() {},
+    getLatestSnapshot() {
+      return null;
+    },
+    send() {},
+    subscribe() {
+      return () => {};
+    },
+    subscribeEvent() {
+      return () => {};
+    }
+  };
 }

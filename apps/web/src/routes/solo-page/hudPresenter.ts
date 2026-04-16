@@ -1,6 +1,10 @@
 import type { SessionSnapshot } from "@snowbattle/shared";
 
+export type SessionHudMode = "solo" | "duel";
+
 export interface SoloHudViewModel {
+  actionDisabled: boolean;
+  actionText: string;
   bonfireText: string;
   buildText: string;
   cooldownText: string;
@@ -14,7 +18,6 @@ export interface SoloHudViewModel {
   previewText: string;
   projectilesText: string;
   readoutText: string;
-  resetDisabled: boolean;
   resultText: string;
   snowLoadText: string;
   statusText: string;
@@ -22,8 +25,37 @@ export interface SoloHudViewModel {
   timeText: string;
 }
 
-export function presentSoloHud(snapshot: SessionSnapshot): SoloHudViewModel {
+export interface SessionHudElements {
+  actionButton?: HTMLButtonElement;
+  bonfire: HTMLElement;
+  build: HTMLElement;
+  cooldown: HTMLElement;
+  cursor: HTMLElement;
+  hp: HTMLElement;
+  mode: HTMLElement;
+  opponentHp: HTMLElement;
+  packedSnow: HTMLElement;
+  phase: HTMLElement;
+  position: HTMLElement;
+  preview: HTMLElement;
+  projectiles: HTMLElement;
+  readout: HTMLElement;
+  result: HTMLElement;
+  snowLoad: HTMLElement;
+  status: HTMLElement;
+  structures: HTMLElement;
+  time: HTMLElement;
+}
+
+export function presentSessionHud(
+  snapshot: SessionSnapshot,
+  mode: SessionHudMode
+): SoloHudViewModel {
+  const copy = HUD_COPY[mode];
+
   return {
+    actionDisabled: snapshot.hud.result === null,
+    actionText: copy.actionText,
     bonfireText: snapshot.match.centerBonfireState,
     buildText: snapshot.localPlayer.selectedBuild ?? "combat",
     cooldownText: `${(snapshot.localPlayer.buildCooldownRemaining / 1000).toFixed(2)}s`,
@@ -36,8 +68,7 @@ export function presentSoloHud(snapshot: SessionSnapshot): SoloHudViewModel {
     positionText: `${snapshot.localPlayer.x.toFixed(1)} / ${snapshot.localPlayer.z.toFixed(1)}`,
     previewText: snapshot.hud.buildPreviewValid ? "valid" : "blocked",
     projectilesText: String(snapshot.projectiles.length),
-    readoutText: getReadoutText(snapshot),
-    resetDisabled: snapshot.hud.result === null,
+    readoutText: getReadoutText(snapshot, copy),
     resultText: getResultText(snapshot),
     snowLoadText: `${Math.round(snapshot.localPlayer.snowLoad)}`,
     statusText:
@@ -49,6 +80,43 @@ export function presentSoloHud(snapshot: SessionSnapshot): SoloHudViewModel {
     structuresText: String(snapshot.structures.length),
     timeText: `${(snapshot.match.timeRemainingMs / 1000).toFixed(1)}s`
   };
+}
+
+export function presentSoloHud(snapshot: SessionSnapshot): SoloHudViewModel {
+  return presentSessionHud(snapshot, "solo");
+}
+
+export function presentDuelHud(snapshot: SessionSnapshot): SoloHudViewModel {
+  return presentSessionHud(snapshot, "duel");
+}
+
+export function renderSessionHud(
+  elements: SessionHudElements,
+  hud: SoloHudViewModel
+) {
+  elements.bonfire.textContent = hud.bonfireText;
+  elements.build.textContent = hud.buildText;
+  elements.cooldown.textContent = hud.cooldownText;
+  elements.cursor.textContent = hud.cursorText;
+  elements.hp.textContent = hud.hpText;
+  elements.mode.textContent = hud.modeText;
+  elements.opponentHp.textContent = hud.opponentHpText;
+  elements.packedSnow.textContent = hud.packedSnowText;
+  elements.phase.textContent = hud.phaseText;
+  elements.position.textContent = hud.positionText;
+  elements.preview.textContent = hud.previewText;
+  elements.projectiles.textContent = hud.projectilesText;
+  elements.readout.textContent = hud.readoutText;
+  elements.result.textContent = hud.resultText;
+  elements.snowLoad.textContent = hud.snowLoadText;
+  elements.status.textContent = hud.statusText;
+  elements.structures.textContent = hud.structuresText;
+  elements.time.textContent = hud.timeText;
+
+  if (elements.actionButton) {
+    elements.actionButton.disabled = hud.actionDisabled;
+    elements.actionButton.textContent = hud.actionText;
+  }
 }
 
 function getModeText(snapshot: SessionSnapshot) {
@@ -89,17 +157,20 @@ function getResultText(snapshot: SessionSnapshot) {
   return `Defeat · ${snapshot.hud.result.reason}`;
 }
 
-function getReadoutText(snapshot: SessionSnapshot) {
+function getReadoutText(
+  snapshot: SessionSnapshot,
+  copy: SessionHudCopy
+) {
   if (snapshot.hud.result !== null) {
     if (snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot) {
-      return "Round complete. Queue another local run whenever you want.";
+      return copy.winReadout;
     }
 
     if (snapshot.hud.result.winnerSlot === null) {
-      return "Round complete. The solo rules engine resolved a draw.";
+      return copy.drawReadout;
     }
 
-    return "Round complete. Hit restart to iterate on the duel again.";
+    return copy.loseReadout;
   }
 
   if (snapshot.match.phase === "final_push") {
@@ -118,3 +189,25 @@ function getReadoutText(snapshot: SessionSnapshot) {
     ? `Build ${snapshot.localPlayer.selectedBuild}. Click to place.`
     : `Build ${snapshot.localPlayer.selectedBuild}. Move to a valid spot.`;
 }
+
+interface SessionHudCopy {
+  actionText: string;
+  drawReadout: string;
+  loseReadout: string;
+  winReadout: string;
+}
+
+const HUD_COPY: Record<SessionHudMode, SessionHudCopy> = {
+  duel: {
+    actionText: "Requeue",
+    drawReadout: "Round complete. The live duel resolved as a draw.",
+    loseReadout: "Round complete. Requeue when you're ready for another live duel.",
+    winReadout: "Round complete. Requeue whenever you want another live duel."
+  },
+  solo: {
+    actionText: "Restart round",
+    drawReadout: "Round complete. The solo rules engine resolved a draw.",
+    loseReadout: "Round complete. Hit restart to iterate on the duel again.",
+    winReadout: "Round complete. Queue another local run whenever you want."
+  }
+};

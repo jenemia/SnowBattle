@@ -327,6 +327,19 @@ input {
   pointer-events: auto;
 }
 
+.shell--duel .hero,
+.shell--duel .hud,
+.shell--duel .panel {
+  pointer-events: none;
+}
+
+.shell--duel .hero-actions,
+.shell--duel .hero-actions a,
+.shell--duel .panel button,
+.shell--duel .panel input {
+  pointer-events: auto;
+}
+
 .solo-stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
