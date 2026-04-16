@@ -21,23 +21,23 @@ export function trySpawnStructure(
   phase: MatchPhase
 ) {
   if (phase === "final_push" || phase === "finished") {
-    return;
+    return false;
   }
 
   const cost = getBuildCost(buildType);
   if (player.buildCooldownRemaining > 0 || player.packedSnow < cost) {
-    return;
+    return false;
   }
 
   if (!isBuildPreviewValid(runtime, player, buildType, phase)) {
-    return;
+    return false;
   }
 
   const activeOwned = [...runtime.structures.values()].filter(
     (structure) => structure.ownerSlot === player.slot && structure.type === buildType
   );
   if (activeOwned.length >= getStructureMaxCount(buildType)) {
-    return;
+    return false;
   }
 
   const structure = createStructureState(
@@ -49,6 +49,7 @@ export function trySpawnStructure(
   runtime.structures.set(structure.id, structure);
   player.buildCooldownRemaining = SOLO_BUILD_COOLDOWN_MS;
   player.packedSnow -= cost;
+  return true;
 }
 
 export function updateStructures(

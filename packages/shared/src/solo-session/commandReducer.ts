@@ -36,7 +36,10 @@ export function reduceCommand(
   }
 
   if (player.selectedBuild !== null) {
-    trySpawnStructure(runtime, player, player.selectedBuild, phase);
+    const placed = trySpawnStructure(runtime, player, player.selectedBuild, phase);
+    if (placed) {
+      player.selectedBuild = null;
+    }
     return;
   }
 
