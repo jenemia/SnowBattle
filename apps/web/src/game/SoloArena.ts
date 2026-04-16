@@ -91,6 +91,7 @@ export class SoloArena {
   private readonly buildPreview: THREE.Mesh;
   private readonly buildPreviewMaterial: THREE.MeshStandardMaterial;
   private readonly scratchCameraPosition = new THREE.Vector3();
+  private readonly scratchHit = new THREE.Vector3();
   private readonly scratchLookTarget = new THREE.Vector3();
   private readonly cursorWorld = new THREE.Vector3(0, 0, 0);
   private buildValid = false;
@@ -108,6 +109,7 @@ export class SoloArena {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.domElement.style.cursor = "crosshair";
+    this.mount.style.touchAction = "none";
     this.mount.appendChild(this.renderer.domElement);
 
     this.wallManager = new WallManager(this.scene);
@@ -124,9 +126,9 @@ export class SoloArena {
     window.addEventListener("resize", this.handleResize);
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
-    this.renderer.domElement.addEventListener("contextmenu", this.handleContextMenu);
-    this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
-    this.renderer.domElement.addEventListener("pointermove", this.handlePointerMove);
+    this.mount.addEventListener("contextmenu", this.handleContextMenu);
+    this.mount.addEventListener("pointerdown", this.handlePointerDown);
+    this.mount.addEventListener("pointermove", this.handlePointerMove);
   }
 
   start() {
@@ -136,7 +138,11 @@ export class SoloArena {
 
     this.running = true;
     this.clock.start();
-    this.updateCursorWorld();
+    const bounds = this.mount.getBoundingClientRect();
+    this.syncCursorFromClientPosition(
+      bounds.left + bounds.width * 0.5,
+      bounds.top + bounds.height * 0.5
+    );
     this.renderer.setAnimationLoop(() => {
       this.tick();
     });
@@ -146,9 +152,9 @@ export class SoloArena {
     window.removeEventListener("resize", this.handleResize);
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("keyup", this.handleKeyUp);
-    this.renderer.domElement.removeEventListener("contextmenu", this.handleContextMenu);
-    this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown);
-    this.renderer.domElement.removeEventListener("pointermove", this.handlePointerMove);
+    this.mount.removeEventListener("contextmenu", this.handleContextMenu);
+    this.mount.removeEventListener("pointerdown", this.handlePointerDown);
+    this.mount.removeEventListener("pointermove", this.handlePointerMove);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
     this.mount.removeChild(this.renderer.domElement);
@@ -346,19 +352,11 @@ export class SoloArena {
     this.updateCursorWorld();
     const playerState = this.updatePlayer(delta);
     this.projectileManager.update(delta, this.wallManager);
-    this.buildValid =
-      this.mode === "build" &&
-      this.wallManager.hasCapacity() &&
-      this.wallManager.canPlace(
-        this.cursorWorld.x,
-        this.cursorWorld.z,
-        this.position.x,
-        this.position.y,
-        PLAYER_RADIUS
-      );
+    this.updateCamera(delta);
+    this.updateCursorWorld();
+    this.syncBuildPreviewState();
     this.updateModeVisuals();
     this.animateRunner(elapsed, playerState.speed);
-    this.updateCamera(delta);
 
     this.renderer.render(this.scene, this.camera);
     this.onFrame({
@@ -482,6 +480,59 @@ export class SoloArena {
     );
   }
 
+  private screenToGround(clientX: number, clientY: number) {
+    if (!this.updatePointerNdc(clientX, clientY)) {
+      return null;
+    }
+
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hit = intersectRayWithGround({
+      direction: this.raycaster.ray.direction,
+      origin: this.raycaster.ray.origin
+    });
+
+    if (!hit) {
+      return null;
+    }
+
+    this.scratchHit.set(
+      clamp(hit.x, -ARENA_BOUNDS, ARENA_BOUNDS),
+      0,
+      clamp(hit.z, -ARENA_BOUNDS, ARENA_BOUNDS)
+    );
+
+    return this.scratchHit;
+  }
+
+  private syncCursorFromClientPosition(clientX: number, clientY: number) {
+    const hit = this.screenToGround(clientX, clientY);
+
+    if (!hit) {
+      this.cursorActive = false;
+      this.syncBuildPreviewState();
+      return false;
+    }
+
+    this.cursorActive = true;
+    this.cursorWorld.copy(hit);
+    this.syncBuildPreviewState();
+    return true;
+  }
+
+  private syncBuildPreviewState() {
+    this.buildValid =
+      this.cursorActive &&
+      this.mode === "build" &&
+      this.wallManager.hasCapacity() &&
+      this.wallManager.canPlace(
+        this.cursorWorld.x,
+        this.cursorWorld.z,
+        this.position.x,
+        this.position.y,
+        PLAYER_RADIUS
+      );
+  }
+
   private updateModeVisuals() {
     this.cursorMarker.visible = this.mode === "combat" && this.cursorActive;
     this.cursorMarker.position.set(this.cursorWorld.x, 0.03, this.cursorWorld.z);
@@ -554,15 +605,17 @@ export class SoloArena {
       return;
     }
 
-    if (event.key === "1") {
+    if (event.code === "Digit1" || event.code === "Numpad1") {
       event.preventDefault();
       this.mode = "build";
+      this.syncBuildPreviewState();
       return;
     }
 
-    if (event.key === "Escape") {
+    if (event.code === "Escape") {
       event.preventDefault();
       this.mode = "combat";
+      this.syncBuildPreviewState();
     }
   };
 
@@ -581,19 +634,31 @@ export class SoloArena {
     }
 
     event.preventDefault();
-    this.updatePointer(event);
-    this.updateCursorWorld();
+    this.syncCursorFromClientPosition(event.clientX, event.clientY);
     this.tryPrimaryAction();
   };
 
   private readonly handlePointerMove = (event: PointerEvent) => {
-    this.updatePointer(event);
+    this.syncCursorFromClientPosition(event.clientX, event.clientY);
   };
 
-  private updatePointer(event: PointerEvent) {
-    const bounds = this.renderer.domElement.getBoundingClientRect();
-    this.pointerNdc.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-    this.pointerNdc.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+  private updatePointerNdc(clientX: number, clientY: number) {
+    const bounds = this.mount.getBoundingClientRect();
+
+    if (
+      bounds.width <= 0 ||
+      bounds.height <= 0 ||
+      clientX < bounds.left ||
+      clientX > bounds.right ||
+      clientY < bounds.top ||
+      clientY > bounds.bottom
+    ) {
+      return false;
+    }
+
+    this.pointerNdc.x = ((clientX - bounds.left) / bounds.width) * 2 - 1;
+    this.pointerNdc.y = -((clientY - bounds.top) / bounds.height) * 2 + 1;
+    return true;
   }
 }
 
