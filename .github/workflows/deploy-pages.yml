@@ -39,7 +39,7 @@ jobs:
 
       - name: Build web client
         env:
-          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
+          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL || 'wss://snowbattle.fly.dev' }}
         run: npm run build --workspace @snowbattle/web
 
       - name: Upload Pages artifact

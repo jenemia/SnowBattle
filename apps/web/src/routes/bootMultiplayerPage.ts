@@ -6,6 +6,7 @@ import {
 } from "@snowbattle/shared";
 
 import { ColyseusSessionProvider } from "../providers/ColyseusSessionProvider";
+import { getProductionServerUrl, resolveServerUrl } from "../serverUrl";
 import { mountGameSession, presentDuelHud, renderSessionHud } from "./solo-page";
 
 export function bootMultiplayerPage(root: HTMLDivElement) {
@@ -264,11 +265,15 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const storedName =
     localStorage.getItem("snowbattle.guestName") || randomGuestName();
   ui.guestNameInput.value = storedName;
-  const serverUrl = resolveServerUrl();
-  const isBackendConfigured = serverUrl.length > 0;
+  const backendConfig = resolveServerUrl({
+    explicitUrl: import.meta.env.VITE_SERVER_URL,
+    hostname: window.location.hostname,
+    isProduction: import.meta.env.PROD
+  });
+  const isBackendConfigured = backendConfig.isConfigured;
 
   const provider = isBackendConfigured
-    ? new ColyseusSessionProvider(serverUrl, () => {
+    ? new ColyseusSessionProvider(backendConfig.serverUrl, () => {
         return ui.guestNameInput.value.trim() || storedName;
       })
     : createPreviewProvider();
@@ -330,13 +335,19 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   if (isBackendConfigured) {
     void joinQueue();
   } else {
-    ui.statusPill.textContent = "Pages preview mode · backend not configured";
-    ui.resultBanner.textContent =
-      "Set VITE_SERVER_URL in GitHub Actions variables to enable live matchmaking.";
+    const missingReason =
+      backendConfig.reason === "production_missing"
+        ? "production_missing"
+        : "host_missing";
+    ui.statusPill.textContent = backendConfig.statusMessage;
+    ui.statusCode.textContent = "idle";
+    ui.statusStage.textContent = "config";
+    ui.statusDetail.textContent = backendConfig.statusDetail;
+    ui.resultBanner.textContent = getMissingBackendMessage(missingReason);
     ui.lifecycle.textContent = "preview";
     ui.countdown.textContent = "--";
     ui.requeueButton.disabled = true;
-    ui.readout.textContent = "Preview mode. Configure a backend to play a live duel.";
+    ui.readout.textContent = getMissingBackendReadout(missingReason);
   }
 
   async function joinQueue() {
@@ -451,20 +462,6 @@ function randomGuestName() {
   return callsigns[Math.floor(Math.random() * callsigns.length)];
 }
 
-function resolveServerUrl() {
-  const explicitUrl = import.meta.env.VITE_SERVER_URL?.trim();
-
-  if (explicitUrl) {
-    return explicitUrl;
-  }
-
-  const isLocalHost =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1";
-
-  return isLocalHost ? "ws://localhost:2567" : "";
-}
-
 function createPreviewProvider(): GameSessionProvider {
   return {
     connect() {},
@@ -480,4 +477,20 @@ function createPreviewProvider(): GameSessionProvider {
       return () => {};
     }
   };
+}
+
+function getMissingBackendMessage(reason: "production_missing" | "host_missing") {
+  if (reason === "production_missing") {
+    return `Production build is missing VITE_SERVER_URL. Set it to ${getProductionServerUrl()} before deploying GitHub Pages.`;
+  }
+
+  return "Backend endpoint is not configured for this host. Set VITE_SERVER_URL or open the app from localhost.";
+}
+
+function getMissingBackendReadout(reason: "production_missing" | "host_missing") {
+  if (reason === "production_missing") {
+    return `Waiting for a production backend. Expected ${getProductionServerUrl()}.`;
+  }
+
+  return "Preview mode. Configure VITE_SERVER_URL or use localhost for live duels.";
 }
