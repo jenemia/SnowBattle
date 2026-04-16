@@ -313,24 +313,21 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   }
 
   function handleKeyDown(event: KeyboardEvent) {
-    if (
-      [
-        "w",
-        "a",
-        "s",
-        "d",
-        "ArrowUp",
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight"
-      ].includes(event.key)
-    ) {
-      movement.add(event.key);
+    const key = normalizeMovementKey(event.key);
+
+    if (key) {
+      event.preventDefault();
+      movement.add(key);
     }
   }
 
   function handleKeyUp(event: KeyboardEvent) {
-    movement.delete(event.key);
+    const key = normalizeMovementKey(event.key);
+
+    if (key) {
+      event.preventDefault();
+      movement.delete(key);
+    }
   }
 
   function handlePointerMove(event: PointerEvent) {
@@ -369,4 +366,21 @@ function resolveServerUrl() {
     window.location.hostname === "127.0.0.1";
 
   return isLocalHost ? "ws://localhost:2567" : "";
+}
+
+function normalizeMovementKey(key: string) {
+  const normalized = key.length === 1 ? key.toLowerCase() : key;
+
+  return [
+    "w",
+    "a",
+    "s",
+    "d",
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight"
+  ].includes(normalized)
+    ? normalized
+    : null;
 }

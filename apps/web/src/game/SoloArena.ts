@@ -332,31 +332,41 @@ export class SoloArena {
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {
-    if (event.repeat) {
-      return;
-    }
+    const key = normalizeMovementKey(event.key);
 
-    if (
-      [
-        "w",
-        "a",
-        "s",
-        "d",
-        "ArrowUp",
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight"
-      ].includes(event.key)
-    ) {
-      this.pressedKeys.add(event.key);
+    if (key) {
+      event.preventDefault();
+      this.pressedKeys.add(key);
     }
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent) => {
-    this.pressedKeys.delete(event.key);
+    const key = normalizeMovementKey(event.key);
+
+    if (key) {
+      event.preventDefault();
+      this.pressedKeys.delete(key);
+    }
   };
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizeMovementKey(key: string) {
+  const normalized = key.length === 1 ? key.toLowerCase() : key;
+
+  return [
+    "w",
+    "a",
+    "s",
+    "d",
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight"
+  ].includes(normalized)
+    ? normalized
+    : null;
 }
