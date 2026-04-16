@@ -141,6 +141,8 @@ const ui = {
 
 const storedName = localStorage.getItem("snowbattle.guestName") || randomGuestName();
 ui.guestNameInput.value = storedName;
+const serverUrl = resolveServerUrl();
+const isBackendConfigured = serverUrl.length > 0;
 
 const arena = new ThreeArena(ui.viewport);
 arena.start();
@@ -151,49 +153,47 @@ let inputSequence = 0;
 const pointer = { x: 0, y: 0, active: false };
 const movement = new Set<string>();
 let fireQueued = false;
-
-const client = new SnowBattleClient(
-  import.meta.env.VITE_SERVER_URL || "ws://localhost:2567",
-  {
-    onCountdown(message) {
-      ui.countdown.textContent = `${Math.ceil(message.remainingMs / 1000)}s`;
-      ui.lifecycle.textContent = "countdown";
-      ui.requeueButton.disabled = true;
-    },
-    onMatchFound(message) {
-      ui.statusPill.textContent = `Match found · Slot ${message.slot}`;
-      ui.roomId.textContent = `Room ${message.roomId}`;
-    },
-    onQueueStatus(message) {
-      ui.queueCount.textContent = `${message.queuedPlayers} rider${
-        message.queuedPlayers === 1 ? "" : "s"
-      }`;
-      ui.statusPill.textContent = `Queued · Position ${message.position}`;
-      ui.roomId.textContent = `Room ${message.roomId}`;
-      ui.lifecycle.textContent = "waiting";
-      ui.countdown.textContent = `${Math.ceil(COUNTDOWN_MS / 1000)}s`;
-    },
-    onRequeue(message) {
-      ui.requeueButton.disabled = !message.available;
-      ui.statusPill.textContent = message.message;
-    },
-    onResult(message) {
-      renderResult(message);
-      ui.lifecycle.textContent = "finished";
-      ui.requeueButton.disabled = false;
-    },
-    onState(message) {
-      latestState = message;
-      arena.applyState(message);
-      ui.lifecycle.textContent = message.lifecycle;
-      ui.roomId.textContent = `Room ${message.roomId}`;
-      renderPlayers(message.players);
-    },
-    onStatusChange(value) {
-      ui.statusPill.textContent = value;
-    }
-  }
-);
+const client = isBackendConfigured
+  ? new SnowBattleClient(serverUrl, {
+      onCountdown(message) {
+        ui.countdown.textContent = `${Math.ceil(message.remainingMs / 1000)}s`;
+        ui.lifecycle.textContent = "countdown";
+        ui.requeueButton.disabled = true;
+      },
+      onMatchFound(message) {
+        ui.statusPill.textContent = `Match found · Slot ${message.slot}`;
+        ui.roomId.textContent = `Room ${message.roomId}`;
+      },
+      onQueueStatus(message) {
+        ui.queueCount.textContent = `${message.queuedPlayers} rider${
+          message.queuedPlayers === 1 ? "" : "s"
+        }`;
+        ui.statusPill.textContent = `Queued · Position ${message.position}`;
+        ui.roomId.textContent = `Room ${message.roomId}`;
+        ui.lifecycle.textContent = "waiting";
+        ui.countdown.textContent = `${Math.ceil(COUNTDOWN_MS / 1000)}s`;
+      },
+      onRequeue(message) {
+        ui.requeueButton.disabled = !message.available;
+        ui.statusPill.textContent = message.message;
+      },
+      onResult(message) {
+        renderResult(message);
+        ui.lifecycle.textContent = "finished";
+        ui.requeueButton.disabled = false;
+      },
+      onState(message) {
+        latestState = message;
+        arena.applyState(message);
+        ui.lifecycle.textContent = message.lifecycle;
+        ui.roomId.textContent = `Room ${message.roomId}`;
+        renderPlayers(message.players);
+      },
+      onStatusChange(value) {
+        ui.statusPill.textContent = value;
+      }
+    })
+  : null;
 
 ui.saveNameButton.addEventListener("click", () => {
   localStorage.setItem(
@@ -207,7 +207,7 @@ ui.requeueButton.addEventListener("click", async () => {
   ui.requeueButton.disabled = true;
   ui.resultBanner.textContent = "";
   ui.resultBanner.classList.remove("danger");
-  await client.leave("requeue");
+  await client?.leave("requeue");
   await joinQueue();
 });
 
@@ -232,19 +232,41 @@ ui.viewport.addEventListener("pointerdown", () => {
   fireQueued = true;
 });
 
-void joinQueue();
+if (isBackendConfigured) {
+  void joinQueue();
+} else {
+  ui.statusPill.textContent = "Pages preview mode · backend not configured";
+  ui.resultBanner.textContent =
+    "Set VITE_SERVER_URL in GitHub Actions variables to enable live matchmaking.";
+  ui.lifecycle.textContent = "preview";
+  ui.countdown.textContent = "--";
+  ui.requeueButton.disabled = true;
+}
+
 window.setInterval(() => sendInput(), 1000 / 20);
 
 async function joinQueue() {
+  if (!client) {
+    return;
+  }
+
   ui.resultBanner.textContent = "";
   ui.resultBanner.classList.remove("danger");
-  await client.queue(ui.guestNameInput.value.trim() || storedName);
-  localSessionId = client.sessionId;
-  arena.setLocalSessionId(localSessionId);
+  try {
+    await client.queue(ui.guestNameInput.value.trim() || storedName);
+    localSessionId = client.sessionId;
+    arena.setLocalSessionId(localSessionId);
+  } catch {
+    ui.statusPill.textContent = "Backend connection failed";
+    ui.resultBanner.textContent =
+      "The web client loaded, but the realtime game server is unreachable.";
+    ui.resultBanner.classList.add("danger");
+    ui.requeueButton.disabled = false;
+  }
 }
 
 function sendInput() {
-  if (!client.sessionId) {
+  if (!client?.sessionId) {
     return;
   }
 
@@ -315,4 +337,18 @@ function randomGuestName() {
   ];
 
   return callsigns[Math.floor(Math.random() * callsigns.length)];
+}
+
+function resolveServerUrl() {
+  const explicitUrl = import.meta.env.VITE_SERVER_URL?.trim();
+
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  const isLocalHost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+
+  return isLocalHost ? "ws://localhost:2567" : "";
 }

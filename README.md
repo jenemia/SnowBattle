@@ -21,6 +21,17 @@ Local endpoints:
 - Game server health: `http://localhost:2567/health`
 - WebSocket server: `ws://localhost:2567`
 
+## GitHub Pages
+
+The repository now includes a GitHub Pages workflow for the web client. Pushes to `main` deploy `apps/web/dist` through GitHub Actions.
+
+1. In GitHub, open `Settings -> Pages`.
+2. Under `Build and deployment`, set `Source` to `GitHub Actions`.
+3. Optional but recommended: add a repository variable named `VITE_SERVER_URL` under `Settings -> Secrets and variables -> Actions`.
+
+If `VITE_SERVER_URL` is set, the deployed site will try to connect to that realtime backend.
+If it is not set, GitHub Pages still loads a preview build with the arena and HUD so you can inspect the frontend shell.
+
 ## Scripts
 
 ```bash
