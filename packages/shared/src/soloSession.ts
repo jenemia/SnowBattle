@@ -1,18 +1,19 @@
 import {
   ARENA_HALF_EXTENT,
   FIRE_COOLDOWN_MS,
-  MATCH_DURATION_MS,
   PLAYER_SPEED,
   PLAYER_SPAWN_OFFSET,
   PROJECTILE_SPEED,
   PROJECTILE_TTL_MS,
   PROJECTILE_SPAWN_DISTANCE,
+  SOLO_MATCH_DURATION_MS,
   SOLO_BONFIRE_CAPTURE_MS,
   SOLO_BONFIRE_DURATION_MS,
   SOLO_BONFIRE_PACKED_SNOW_REWARD,
   SOLO_BONFIRE_RADIUS,
   SOLO_BONFIRE_SNOW_LOAD_REWARD,
   SOLO_BUILD_COOLDOWN_MS,
+  SOLO_FINAL_PUSH_START_MS,
   SOLO_HEATER_BEACON_COST,
   SOLO_HEATER_BEACON_DURATION_MS,
   SOLO_HEATER_BEACON_HP,
@@ -41,7 +42,12 @@ import {
   SOLO_WALL_DURATION_MS,
   SOLO_WALL_HALF_DEPTH,
   SOLO_WALL_HALF_WIDTH,
-  SOLO_WALL_HP
+  SOLO_WALL_HP,
+  SOLO_WHITEOUT_CENTER_CONTROL_RADIUS,
+  SOLO_WHITEOUT_PLAYER_DAMAGE_PER_SECOND,
+  SOLO_WHITEOUT_START_MS,
+  SOLO_WHITEOUT_STRUCTURE_DAMAGE_PER_SECOND,
+  SOLO_WHITEOUT_TARGET_RADIUS
 } from "./constants";
 import type {
   BuildType,
@@ -100,6 +106,7 @@ export class SoloRulesEngine {
     captureMs: { A: 0, B: 0 },
     claimedBy: null
   };
+  private readonly centerControlTime: Record<SlotId, number> = { A: 0, B: 0 };
   private elapsedMs = 0;
   private latestResult: SessionResultSnapshot | null = null;
   private latestSnapshot: SessionSnapshot;
@@ -161,15 +168,17 @@ export class SoloRulesEngine {
       return;
     }
 
-    this.elapsedMs = Math.min(MATCH_DURATION_MS, this.elapsedMs + deltaMs);
+    this.elapsedMs = Math.min(SOLO_MATCH_DURATION_MS, this.elapsedMs + deltaMs);
     const localPlayer = this.players[this.localSlot];
     const opponentPlayer = this.players[this.localSlot === "A" ? "B" : "A"];
     const deltaSeconds = deltaMs / 1000;
+    const phase = this.getCurrentPhase();
+    const whiteoutRadius = this.getWhiteoutRadius();
 
     this.updateBonfire(deltaMs);
 
     if (this.botEnabled) {
-      this.updateBot(opponentPlayer, localPlayer);
+      this.updateBot(opponentPlayer, localPlayer, phase, whiteoutRadius);
     }
 
     for (const player of Object.values(this.players)) {
@@ -218,9 +227,25 @@ export class SoloRulesEngine {
       if (Math.hypot(aimX, aimZ) > 0.001) {
         player.facingAngle = Math.atan2(aimX, aimZ);
       }
+
+      if (phase !== "standard") {
+        if (Math.hypot(player.x, player.z) > whiteoutRadius) {
+          player.hp = Math.max(
+            0,
+            player.hp - deltaSeconds * SOLO_WHITEOUT_PLAYER_DAMAGE_PER_SECOND
+          );
+        }
+      }
+
+      if (
+        phase === "whiteout" &&
+        Math.hypot(player.x, player.z) <= SOLO_WHITEOUT_CENTER_CONTROL_RADIUS
+      ) {
+        this.centerControlTime[player.slot] += deltaMs;
+      }
     }
 
-    this.updateStructures();
+    this.updateStructures(phase, whiteoutRadius, deltaSeconds);
     this.updateProjectiles(deltaSeconds);
     this.updateBonfireCapture(deltaMs);
 
@@ -229,16 +254,8 @@ export class SoloRulesEngine {
         winnerSlot: localPlayer.hp > 0 ? localPlayer.slot : opponentPlayer.slot,
         reason: "elimination"
       };
-    } else if (this.elapsedMs >= MATCH_DURATION_MS) {
-      this.latestResult = {
-        winnerSlot:
-          localPlayer.hp === opponentPlayer.hp
-            ? null
-            : localPlayer.hp > opponentPlayer.hp
-              ? localPlayer.slot
-              : opponentPlayer.slot,
-        reason: "timeout"
-      };
+    } else if (this.elapsedMs >= SOLO_MATCH_DURATION_MS) {
+      this.latestResult = this.resolveTimeout(localPlayer, opponentPlayer);
     }
 
     this.latestSnapshot = this.createSnapshot();
@@ -276,7 +293,6 @@ export class SoloRulesEngine {
     const opponentPlayer = {
       ...this.players[this.localSlot === "A" ? "B" : "A"]
     };
-    const match = this.createMatchSnapshot();
 
     return {
       localPlayer,
@@ -289,7 +305,7 @@ export class SoloRulesEngine {
         z: projectile.z,
         expiresAt: projectile.expiresAt
       })),
-      match,
+      match: this.createMatchSnapshot(),
       hud: {
         activeBonfire:
           this.bonfire.activationStart !== null && this.bonfire.claimedBy === null,
@@ -303,21 +319,53 @@ export class SoloRulesEngine {
   }
 
   private createMatchSnapshot(): SessionMatchSnapshot {
-    const timeRemainingMs = Math.max(0, MATCH_DURATION_MS - this.elapsedMs);
-    const phase: MatchPhase = this.latestResult === null ? "standard" : "finished";
+    const phase = this.latestResult === null ? this.getCurrentPhase() : "finished";
 
     return {
       phase,
-      timeRemainingMs,
-      whiteoutRadius: ARENA_HALF_EXTENT,
+      timeRemainingMs: Math.max(0, SOLO_MATCH_DURATION_MS - this.elapsedMs),
+      whiteoutRadius: this.getWhiteoutRadius(),
       centerBonfireState:
         this.bonfire.claimedBy !== null
           ? "claimed"
           : this.bonfire.activationStart !== null
             ? "active"
             : "idle",
-      centerControlTime: { A: 0, B: 0 }
+      centerControlTime: {
+        A: this.centerControlTime.A,
+        B: this.centerControlTime.B
+      }
     };
+  }
+
+  private getCurrentPhase(): MatchPhase {
+    if (this.elapsedMs >= SOLO_FINAL_PUSH_START_MS) {
+      return "final_push";
+    }
+
+    if (this.elapsedMs >= SOLO_WHITEOUT_START_MS) {
+      return "whiteout";
+    }
+
+    return "standard";
+  }
+
+  private getWhiteoutRadius() {
+    if (this.elapsedMs < SOLO_WHITEOUT_START_MS) {
+      return ARENA_HALF_EXTENT;
+    }
+
+    if (this.elapsedMs >= SOLO_FINAL_PUSH_START_MS) {
+      return SOLO_WHITEOUT_TARGET_RADIUS;
+    }
+
+    const progress =
+      (this.elapsedMs - SOLO_WHITEOUT_START_MS) /
+      (SOLO_FINAL_PUSH_START_MS - SOLO_WHITEOUT_START_MS);
+    return (
+      ARENA_HALF_EXTENT -
+      (ARENA_HALF_EXTENT - SOLO_WHITEOUT_TARGET_RADIUS) * progress
+    );
   }
 
   private trySpawnProjectile(player: PlayerRuntimeState) {
@@ -352,6 +400,10 @@ export class SoloRulesEngine {
   }
 
   private trySpawnStructure(player: PlayerRuntimeState, buildType: BuildType) {
+    if (this.getCurrentPhase() === "final_push") {
+      return;
+    }
+
     const cost = getBuildCost(buildType);
     if (player.buildCooldownRemaining > 0 || player.packedSnow < cost) {
       return;
@@ -385,8 +437,19 @@ export class SoloRulesEngine {
     player.packedSnow -= cost;
   }
 
-  private updateStructures() {
+  private updateStructures(
+    phase: MatchPhase,
+    whiteoutRadius: number,
+    deltaSeconds: number
+  ) {
     for (const structure of this.structures.values()) {
+      if (phase !== "standard" && Math.hypot(structure.x, structure.z) > whiteoutRadius) {
+        structure.hp = Math.max(
+          0,
+          structure.hp - deltaSeconds * SOLO_WHITEOUT_STRUCTURE_DAMAGE_PER_SECOND
+        );
+      }
+
       if (!structure.enabled || structure.expiresAt <= this.elapsedMs || structure.hp <= 0) {
         this.structures.delete(structure.id);
         continue;
@@ -546,6 +609,48 @@ export class SoloRulesEngine {
     source.totalDirectDamageDealt += SOLO_SNOWBALL_DAMAGE;
   }
 
+  private resolveTimeout(
+    localPlayer: PlayerRuntimeState,
+    opponentPlayer: PlayerRuntimeState
+  ): SessionResultSnapshot {
+    if (localPlayer.hp !== opponentPlayer.hp) {
+      return {
+        winnerSlot: localPlayer.hp > opponentPlayer.hp ? localPlayer.slot : opponentPlayer.slot,
+        reason: "timeout"
+      };
+    }
+
+    if (localPlayer.snowLoad !== opponentPlayer.snowLoad) {
+      return {
+        winnerSlot:
+          localPlayer.snowLoad < opponentPlayer.snowLoad
+            ? localPlayer.slot
+            : opponentPlayer.slot,
+        reason: "timeout"
+      };
+    }
+
+    if (localPlayer.totalDirectDamageDealt !== opponentPlayer.totalDirectDamageDealt) {
+      return {
+        winnerSlot:
+          localPlayer.totalDirectDamageDealt > opponentPlayer.totalDirectDamageDealt
+            ? localPlayer.slot
+            : opponentPlayer.slot,
+        reason: "timeout"
+      };
+    }
+
+    if (this.centerControlTime.A !== this.centerControlTime.B) {
+      return {
+        winnerSlot:
+          this.centerControlTime.A > this.centerControlTime.B ? "A" : "B",
+        reason: "timeout"
+      };
+    }
+
+    return { winnerSlot: null, reason: "timeout" };
+  }
+
   private isInsideFriendlyHeater(player: PlayerRuntimeState) {
     return [...this.structures.values()].some(
       (structure) =>
@@ -560,7 +665,7 @@ export class SoloRulesEngine {
     player: PlayerRuntimeState,
     buildType: BuildType | null
   ) {
-    if (buildType === null) {
+    if (buildType === null || this.getCurrentPhase() === "final_push") {
       return false;
     }
 
@@ -627,7 +732,12 @@ export class SoloRulesEngine {
     });
   }
 
-  private updateBot(bot: PlayerRuntimeState, target: PlayerRuntimeState) {
+  private updateBot(
+    bot: PlayerRuntimeState,
+    target: PlayerRuntimeState,
+    phase: MatchPhase,
+    whiteoutRadius: number
+  ) {
     const activeBonfire =
       this.bonfire.activationStart !== null && this.bonfire.claimedBy === null;
 
@@ -641,6 +751,16 @@ export class SoloRulesEngine {
       const toCenter = Math.hypot(-bot.x, -bot.z) || 1;
       bot.moveX = -bot.x / toCenter;
       bot.moveZ = -bot.z / toCenter;
+      return;
+    }
+
+    if (phase !== "standard" && Math.hypot(bot.x, bot.z) > whiteoutRadius) {
+      const toCenter = Math.hypot(-bot.x, -bot.z) || 1;
+      bot.moveX = -bot.x / toCenter;
+      bot.moveZ = -bot.z / toCenter;
+      bot.aimX = target.x;
+      bot.aimZ = target.z;
+      bot.pointerActive = true;
       return;
     }
 
