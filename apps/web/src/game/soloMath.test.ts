@@ -23,4 +23,9 @@ describe("solo movement math", () => {
     expect(normalizeMovementKey("ArrowLeft")).toBe("ArrowLeft");
     expect(normalizeMovementKey("Shift")).toBeNull();
   });
+
+  it("prefers keyboard code bindings for wasd movement", () => {
+    expect(normalizeMovementKey("ㅈ", "KeyW")).toBe("w");
+    expect(normalizeMovementKey("ㅁ", "KeyA")).toBe("a");
+  });
 });

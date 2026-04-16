@@ -310,10 +310,21 @@ input {
 
 .shell--solo .hero {
   width: min(30rem, 100%);
+  pointer-events: none;
 }
 
 .shell--solo .title span {
   color: #82f25f;
+}
+
+.shell--solo .hero-actions,
+.shell--solo .hero-actions a,
+.shell--solo .hud {
+  pointer-events: none;
+}
+
+.shell--solo .secondary-link {
+  pointer-events: auto;
 }
 
 .solo-stats {
@@ -327,6 +338,14 @@ input {
   background: rgba(255, 255, 255, 0.05);
   color: var(--accent-strong);
   font-weight: 600;
+}
+
+.solo-debug {
+  margin-top: 0.85rem;
+  color: rgba(238, 248, 255, 0.5);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 @media (max-width: 960px) {

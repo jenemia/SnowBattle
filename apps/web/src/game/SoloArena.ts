@@ -40,6 +40,8 @@ export interface SoloArenaSnapshot {
   activeWalls: number;
   buildValid: boolean;
   cooldownMs: number;
+  cursorX: number;
+  cursorZ: number;
   facingDegrees: number;
   inputLabel: string;
   mode: SoloMode;
@@ -364,6 +366,8 @@ export class SoloArena {
       activeWalls: this.wallManager.activeCount,
       buildValid: this.buildValid,
       cooldownMs: this.fireCooldownMs,
+      cursorX: this.cursorWorld.x,
+      cursorZ: this.cursorWorld.z,
       facingDegrees: THREE.MathUtils.radToDeg(this.facingAngle),
       inputLabel: movementLabel(playerState.input),
       mode: this.mode,
@@ -542,7 +546,7 @@ export class SoloArena {
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {
-    const movementKey = normalizeMovementKey(event.key);
+    const movementKey = normalizeMovementKey(event.key, event.code);
 
     if (movementKey) {
       event.preventDefault();
@@ -563,7 +567,7 @@ export class SoloArena {
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent) => {
-    const movementKey = normalizeMovementKey(event.key);
+    const movementKey = normalizeMovementKey(event.key, event.code);
 
     if (movementKey) {
       event.preventDefault();

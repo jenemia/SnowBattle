@@ -14,6 +14,17 @@ const KEY_BINDINGS: Record<string, MovementVector> = {
   w: { x: 0, y: -1 }
 };
 
+const CODE_BINDINGS: Record<string, string> = {
+  ArrowDown: "ArrowDown",
+  ArrowLeft: "ArrowLeft",
+  ArrowRight: "ArrowRight",
+  ArrowUp: "ArrowUp",
+  KeyA: "a",
+  KeyD: "d",
+  KeyS: "s",
+  KeyW: "w"
+};
+
 export function getNormalizedMovement(keys: Iterable<string>): MovementVector {
   let x = 0;
   let y = 0;
@@ -75,7 +86,11 @@ export function movementLabel(vector: MovementVector) {
   return [vertical, horizontal].filter(Boolean).join("-");
 }
 
-export function normalizeMovementKey(key: string) {
+export function normalizeMovementKey(key: string, code?: string) {
+  if (code && CODE_BINDINGS[code]) {
+    return CODE_BINDINGS[code];
+  }
+
   const normalized = key.length === 1 ? key.toLowerCase() : key;
 
   return KEY_BINDINGS[normalized] ? normalized : null;

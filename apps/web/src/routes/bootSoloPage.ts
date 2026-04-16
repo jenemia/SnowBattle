@@ -2,7 +2,7 @@ import { SoloArena } from "../game/SoloArena";
 
 export function bootSoloPage(root: HTMLDivElement) {
   root.innerHTML = `
-    <div class="shell shell--solo">
+    <div class="shell shell--solo" data-testid="solo-shell">
       <section class="hero hero--solo">
         <div class="eyebrow">Solo Movement Lab · Low Poly Runner</div>
         <h1 class="title">Snow<span>Stride</span></h1>
@@ -15,13 +15,13 @@ export function bootSoloPage(root: HTMLDivElement) {
         </div>
       </section>
       <section class="arena">
-        <div class="viewport" id="solo-viewport"></div>
+        <div class="viewport" id="solo-viewport" data-testid="solo-viewport"></div>
         <div class="hud hud--solo">
           <div class="panel panel--solo">
             <h2>Solo Test</h2>
             <div class="status-line">
-              <span class="status-pill" id="solo-status">Combat</span>
-              <span id="solo-mode">Mode ready</span>
+              <span class="status-pill" id="solo-status" data-testid="solo-status">Combat</span>
+              <span id="solo-mode" data-testid="solo-mode">Mode ready</span>
             </div>
             <p class="hint">
               Move with WASD or arrow keys. LMB throws a snowball. Press 1 to preview one
@@ -30,30 +30,31 @@ export function bootSoloPage(root: HTMLDivElement) {
             <div class="telemetry solo-stats">
               <div>
                 <span>Mode</span>
-                <strong id="solo-mode-label">combat</strong>
+                <strong id="solo-mode-label" data-testid="solo-mode-label">combat</strong>
               </div>
               <div>
                 <span>Cooldown</span>
-                <strong id="solo-cooldown">0.00s</strong>
+                <strong id="solo-cooldown" data-testid="solo-cooldown">0.00s</strong>
               </div>
               <div>
                 <span>Walls</span>
-                <strong id="solo-walls">0</strong>
+                <strong id="solo-walls" data-testid="solo-walls">0</strong>
               </div>
               <div>
                 <span>Snowballs</span>
-                <strong id="solo-projectiles">0</strong>
+                <strong id="solo-projectiles" data-testid="solo-projectiles">0</strong>
               </div>
               <div>
                 <span>Speed</span>
-                <strong id="solo-speed">0.00</strong>
+                <strong id="solo-speed" data-testid="solo-speed">0.00</strong>
               </div>
               <div>
                 <span>Facing</span>
-                <strong id="solo-facing">0°</strong>
+                <strong id="solo-facing" data-testid="solo-facing">0°</strong>
               </div>
             </div>
-            <div class="solo-readout" id="solo-readout">
+            <div class="solo-debug" data-testid="solo-cursor">0.0 / 0.0</div>
+            <div class="solo-readout" id="solo-readout" data-testid="solo-readout">
               Combat mode. Click to throw a snowball.
             </div>
           </div>
@@ -66,6 +67,7 @@ export function bootSoloPage(root: HTMLDivElement) {
   const cooldown = root.querySelector<HTMLElement>("#solo-cooldown");
   const speed = root.querySelector<HTMLElement>("#solo-speed");
   const facing = root.querySelector<HTMLElement>("#solo-facing");
+  const cursor = root.querySelector<HTMLElement>("[data-testid='solo-cursor']");
   const modeLabel = root.querySelector<HTMLElement>("#solo-mode-label");
   const projectiles = root.querySelector<HTMLElement>("#solo-projectiles");
   const status = root.querySelector<HTMLElement>("#solo-status");
@@ -78,6 +80,7 @@ export function bootSoloPage(root: HTMLDivElement) {
     !cooldown ||
     !speed ||
     !facing ||
+    !cursor ||
     !modeLabel ||
     !projectiles ||
     !status ||
@@ -90,6 +93,7 @@ export function bootSoloPage(root: HTMLDivElement) {
 
   const arena = new SoloArena(viewport, (snapshot) => {
     cooldown.textContent = `${(snapshot.cooldownMs / 1000).toFixed(2)}s`;
+    cursor.textContent = `${snapshot.cursorX.toFixed(1)} / ${snapshot.cursorZ.toFixed(1)}`;
     speed.textContent = snapshot.speed.toFixed(2);
     facing.textContent = `${Math.round(snapshot.facingDegrees)}°`;
     modeLabel.textContent = snapshot.mode;

@@ -15,6 +15,9 @@ export default defineConfig({
         ? "/"
         : `/${repositorySlug}/`
       : "/",
+  test: {
+    exclude: ["e2e/**"]
+  },
   server: {
     port: 5173
   },
