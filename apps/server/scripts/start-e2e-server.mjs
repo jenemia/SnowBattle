@@ -5,12 +5,17 @@ const serverDir = fileURLToPath(new URL("..", import.meta.url));
 const tsxPath = fileURLToPath(
   new URL("../../../node_modules/.bin/tsx", import.meta.url)
 );
+const port = Number(process.env.PORT || 2567);
 
 const serverProcess = spawn(
   process.execPath,
   [tsxPath, "src/server.ts"],
   {
     cwd: serverDir,
+    env: {
+      ...process.env,
+      PORT: String(port)
+    },
     stdio: "inherit"
   }
 );
@@ -36,7 +41,7 @@ serverProcess.on("exit", (code, signal) => {
 await waitForMatchmake();
 
 async function waitForMatchmake() {
-  const readyUrl = "http://localhost:2567/matchmake/joinOrCreate/duel";
+  const readyUrl = `http://localhost:${port}/matchmake/joinOrCreate/duel`;
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
