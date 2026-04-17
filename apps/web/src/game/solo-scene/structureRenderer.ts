@@ -13,6 +13,8 @@ import {
   type SessionStructureSnapshot
 } from "@snowbattle/shared";
 
+const WALL_GROUND_CLEARANCE = 0.03;
+
 export class SoloStructureRenderer {
   private readonly structureMeshes = new Map<string, THREE.Object3D>();
 
@@ -122,7 +124,7 @@ export function createGroundAnchoredWall() {
         roughness: 0.42
       })
     );
-  mesh.position.y = 1.5;
+  mesh.position.y = 1.5 + WALL_GROUND_CLEARANCE;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   group.add(mesh);
@@ -136,7 +138,7 @@ function updateStructureVisual(
   const maxHp = getStructureMaxHp(structure.type);
   const ratio = Math.max(0.25, structure.hp / maxHp);
 
-  object.scale.y = ratio;
+  object.scale.y = structure.type === "wall" ? 1 : ratio;
 
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) {
@@ -146,6 +148,10 @@ function updateStructureVisual(
     const material = child.material;
     if (!(material instanceof THREE.MeshStandardMaterial)) {
       return;
+    }
+
+    if (structure.type === "wall") {
+      material.color.set("#4dc6ff").lerp(new THREE.Color("#79e1ff"), ratio);
     }
 
     material.emissiveIntensity =

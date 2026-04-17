@@ -87,7 +87,7 @@ export class SoloArenaScene {
     const delta = this.clock.getDelta();
 
     if (this.latestSnapshot) {
-      this.playerRenderer.sync(this.latestSnapshot);
+      this.playerRenderer.sync(this.latestSnapshot, delta);
       this.projectileRenderer.sync(this.latestSnapshot);
       this.structureRenderer.sync(this.latestSnapshot);
       this.overlayRenderer.sync(this.latestSnapshot);

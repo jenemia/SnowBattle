@@ -87,6 +87,7 @@ export interface SessionStructureSnapshot {
 export interface SessionProjectileSnapshot {
   id: string;
   ownerSlot: SlotId;
+  sourceType?: "player" | "snowman_turret";
   x: number;
   z: number;
   expiresAt: number;

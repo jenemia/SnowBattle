@@ -21,11 +21,11 @@ describe("SoloStructureRenderer", () => {
     const wall = scene.children[0];
     const bounds = new THREE.Box3().setFromObject(wall);
 
-    expect(bounds.min.y).toBeCloseTo(0, 5);
-    expect(bounds.max.y).toBeCloseTo(3, 5);
+    expect(bounds.min.y).toBeCloseTo(0.03, 5);
+    expect(bounds.max.y).toBeCloseTo(3.03, 5);
   });
 
-  it("keeps damaged walls grounded while scaling by hp", () => {
+  it("keeps damaged walls at full height while preserving ground clearance", () => {
     const scene = new THREE.Scene();
     const renderer = new SoloStructureRenderer(scene);
 
@@ -40,8 +40,8 @@ describe("SoloStructureRenderer", () => {
     const wall = scene.children[0];
     const bounds = new THREE.Box3().setFromObject(wall);
 
-    expect(bounds.min.y).toBeCloseTo(0, 5);
-    expect(bounds.max.y).toBeCloseTo(1.5, 5);
+    expect(bounds.min.y).toBeCloseTo(0.03, 5);
+    expect(bounds.max.y).toBeCloseTo(3.03, 5);
   });
 
   it("applies persisted wall rotation during sync", () => {

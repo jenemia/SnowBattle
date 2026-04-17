@@ -171,6 +171,35 @@ describe("SoloRulesEngine", () => {
     expect(snapshot.opponentPlayer.z).toBeCloseTo(5, 5);
   });
 
+  it("spawns visible turret projectiles before applying snow load", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess & {
+      runtime: RuntimeAccess["runtime"] & {
+        players: RuntimeAccess["runtime"]["players"];
+      };
+    };
+
+    runtime.runtime.players.B.x = 3;
+    runtime.runtime.players.B.z = -3;
+
+    setInput(engine, "A", { aimX: 3, aimY: 4, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 2_550);
+
+    const firingSnapshot = engine.getSnapshot();
+
+    expect(firingSnapshot.structures).toHaveLength(1);
+    expect(firingSnapshot.projectiles).toHaveLength(1);
+    expect(firingSnapshot.projectiles[0]?.sourceType).toBe("snowman_turret");
+
+    advance(engine, 500);
+
+    const hitSnapshot = engine.getSnapshot();
+    expect(hitSnapshot.projectiles).toHaveLength(0);
+    expect(hitSnapshot.opponentPlayer.snowLoad).toBeGreaterThan(0);
+  });
+
   it("awards the center bonfire reward after channeling", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 

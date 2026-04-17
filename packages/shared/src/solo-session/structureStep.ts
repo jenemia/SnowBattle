@@ -2,13 +2,13 @@ import {
   ARENA_HALF_EXTENT,
   SOLO_BUILD_COOLDOWN_MS,
   SOLO_SNOWMAN_TURRET_INTERVAL_MS,
-  SOLO_SNOWMAN_TURRET_LOAD,
   SOLO_SNOWMAN_TURRET_RANGE,
   SOLO_WHITEOUT_STRUCTURE_DAMAGE_PER_SECOND
 } from "../constants.js";
 import type { BuildType, MatchPhase } from "../session.js";
 import { createStructureState, getBuildCost, getStructureMaxCount, isBuildPreviewValid } from "./buildRules.js";
 import { clamp, resolveCircleOutsideWall, segmentHitsWall } from "./geometry.js";
+import { spawnTurretProjectile } from "./projectileStep.js";
 import type {
   PlayerRuntimeState,
   SoloRuntimeState,
@@ -86,9 +86,7 @@ export function updateStructures(
     const distance = Math.hypot(target.x - structure.x, target.z - structure.z);
 
     if (distance <= SOLO_SNOWMAN_TURRET_RANGE && hasLineOfSight(runtime, structure, target)) {
-      target.snowLoad = Math.min(100, target.snowLoad + SOLO_SNOWMAN_TURRET_LOAD);
-      target.lastHitAt = runtime.elapsedMs;
-      target.slowMultiplier = 1 - getSlowPenalty(target.snowLoad);
+      spawnTurretProjectile(runtime, structure, target);
     }
 
     structure.nextFireAt = runtime.elapsedMs + SOLO_SNOWMAN_TURRET_INTERVAL_MS;
@@ -139,8 +137,4 @@ function pushPlayersOutOfWall(
     player.x = clamp(resolved.x, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT);
     player.z = clamp(resolved.z, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT);
   }
-}
-
-function getSlowPenalty(snowLoad: number) {
-  return Math.min(0.35, (snowLoad / 20) * 0.07);
 }

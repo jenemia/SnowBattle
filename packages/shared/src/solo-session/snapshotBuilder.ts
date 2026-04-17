@@ -34,6 +34,7 @@ export function createSnapshot(
       expiresAt: projectile.expiresAt,
       id: projectile.id,
       ownerSlot: projectile.ownerSlot,
+      sourceType: projectile.sourceType,
       x: projectile.x,
       z: projectile.z
     })),

@@ -1,0 +1,81 @@
+import * as THREE from "three";
+import { describe, expect, it } from "vitest";
+
+import type { SessionSnapshot } from "@snowbattle/shared";
+
+import { SoloPlayerRenderer } from "./playerRenderer";
+
+describe("SoloPlayerRenderer", () => {
+  it("smooths player movement instead of snapping to the next snapshot", () => {
+    const scene = new THREE.Scene();
+    const clock = { elapsedTime: 0 } as THREE.Clock;
+    const renderer = new SoloPlayerRenderer(scene, clock);
+
+    renderer.sync(createSnapshot(0, 10), 1);
+    const localRunner = scene.children[0] as THREE.Group;
+
+    expect(localRunner.position.x).toBe(0);
+    expect(localRunner.position.z).toBe(10);
+
+    renderer.sync(createSnapshot(8, 6), 1 / 60);
+
+    expect(localRunner.position.x).toBeGreaterThan(0);
+    expect(localRunner.position.x).toBeLessThan(8);
+    expect(localRunner.position.z).toBeLessThan(10);
+    expect(localRunner.position.z).toBeGreaterThan(6);
+  });
+});
+
+function createSnapshot(x: number, z: number): SessionSnapshot {
+  return {
+    hud: {
+      activeBonfire: false,
+      buildPreviewValid: true,
+      cursorX: x,
+      cursorZ: z - 3,
+      pointerActive: true,
+      result: null
+    },
+    localPlayer: {
+      buildCooldownRemaining: 0,
+      connected: true,
+      facingAngle: 0,
+      guestName: "You",
+      hp: 100,
+      packedSnow: 100,
+      ready: true,
+      selectedBuild: null,
+      slowMultiplier: 1,
+      slot: "A",
+      snowLoad: 0,
+      x,
+      z
+    },
+    match: {
+      centerBonfireState: "idle",
+      centerControlTime: { A: 0, B: 0 },
+      countdownRemainingMs: 0,
+      lifecycle: "in_match",
+      phase: "standard",
+      timeRemainingMs: 180_000,
+      whiteoutRadius: 22
+    },
+    opponentPlayer: {
+      buildCooldownRemaining: 0,
+      connected: true,
+      facingAngle: Math.PI,
+      guestName: "Opponent",
+      hp: 100,
+      packedSnow: 100,
+      ready: true,
+      selectedBuild: null,
+      slowMultiplier: 1,
+      slot: "B",
+      snowLoad: 0,
+      x: -6,
+      z: -8
+    },
+    projectiles: [],
+    structures: []
+  };
+}

@@ -18,6 +18,7 @@ const PLAYER_PALETTE = {
     head: new THREE.Color("#ffc3ef")
   }
 } as const;
+const PLAYER_POSITION_LERP_SPEED = 8;
 
 export class SoloPlayerRenderer {
   private readonly playerMeshes = new Map<string, RunnerParts>();
@@ -27,9 +28,12 @@ export class SoloPlayerRenderer {
     private readonly clock: THREE.Clock
   ) {}
 
-  sync(snapshot: SessionSnapshot) {
+  sync(snapshot: SessionSnapshot, delta: number) {
+    const lerpAlpha = 1 - Math.exp(-PLAYER_POSITION_LERP_SPEED * delta);
+
     for (const player of [snapshot.localPlayer, snapshot.opponentPlayer]) {
       let runner = this.playerMeshes.get(player.slot);
+      const isNewRunner = !runner;
 
       if (!runner) {
         runner = createRunner(player.slot === snapshot.localPlayer.slot);
@@ -47,7 +51,20 @@ export class SoloPlayerRenderer {
       runner.snowCap.visible = snowBlend > 0.05;
       runner.snowCap.scale.setScalar(0.65 + snowBlend * 0.9);
       runner.snowCap.position.y = 3.95 + snowBlend * 0.2;
-      runner.group.position.set(player.x, 0.1, player.z);
+      if (isNewRunner) {
+        runner.group.position.set(player.x, 0.1, player.z);
+      } else {
+        runner.group.position.x = THREE.MathUtils.lerp(
+          runner.group.position.x,
+          player.x,
+          lerpAlpha
+        );
+        runner.group.position.z = THREE.MathUtils.lerp(
+          runner.group.position.z,
+          player.z,
+          lerpAlpha
+        );
+      }
       runner.group.rotation.y = player.facingAngle;
       runner.group.scale.setScalar(
         (player.slot === snapshot.localPlayer.slot ? 1 : 0.98) + snowBlend * 0.03
