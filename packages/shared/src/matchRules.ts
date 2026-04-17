@@ -9,7 +9,7 @@ export interface MatchRules {
 
 export const DEFAULT_MATCH_RULES: MatchRules = {
   matchDurationMs: 120_000,
-  whiteoutStartMs: 60_000,
+  whiteoutStartMs: 30_000,
   finalPushStartMs: 90_000,
   whiteoutTargetRadius: 5
 };

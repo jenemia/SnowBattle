@@ -73,6 +73,7 @@ describe("SoloRulesEngine", () => {
 
   it("transitions from standard to whiteout and final push across the solo timeline", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
+    keepPlayersInsideSafeZone(engine);
 
     advance(engine, DEFAULT_MATCH_RULES.whiteoutStartMs - 50);
     expect(engine.getSnapshot().match.phase).toBe("standard");
@@ -105,6 +106,7 @@ describe("SoloRulesEngine", () => {
 
   it("holds the whiteout ring at radius 5 once final push begins", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
+    keepPlayersInsideSafeZone(engine);
 
     advance(engine, DEFAULT_MATCH_RULES.finalPushStartMs);
 
@@ -118,6 +120,7 @@ describe("SoloRulesEngine", () => {
 
   it("blocks build placements during final push", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
+    keepPlayersInsideSafeZone(engine);
 
     setInput(engine, "A", { aimY: 5, pointerActive: true });
     engine.receiveCommand("A", buildSelect("wall"));
@@ -498,6 +501,15 @@ function advance(engine: SoloRulesEngine, totalMs: number, stepMs = 50) {
     engine.tick(deltaMs);
     remainingMs -= deltaMs;
   }
+}
+
+function keepPlayersInsideSafeZone(engine: SoloRulesEngine) {
+  const runtime = engine as unknown as RuntimeAccess;
+
+  runtime.runtime.players.A.x = 0;
+  runtime.runtime.players.A.z = 0;
+  runtime.runtime.players.B.x = 0;
+  runtime.runtime.players.B.z = 0;
 }
 
 function setInput(
