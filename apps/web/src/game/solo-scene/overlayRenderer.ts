@@ -10,6 +10,7 @@ import {
 
 const CURSOR_RING_Y = 0.03;
 const PREVIEW_ALPHA = 0.38;
+const BUILDING_GROUND_CLEARANCE = 0.03;
 
 export class SoloOverlayRenderer {
   private readonly buildPreview: THREE.Mesh;
@@ -96,7 +97,7 @@ export class SoloOverlayRenderer {
       this.buildPreview.geometry = this.buildPreviewGeometries[buildType];
       this.buildPreview.position.set(
         snapshot.hud.cursorX,
-        buildType === "wall" ? 1.5 : 0.8,
+        getBuildPreviewCenterY(buildType),
         snapshot.hud.cursorZ
       );
       this.buildPreview.rotation.y =
@@ -129,6 +130,18 @@ export function getWallPreviewYaw(snapshot: SessionSnapshot) {
     snapshot.hud.cursorX,
     snapshot.hud.cursorZ
   );
+}
+
+export function getBuildPreviewCenterY(buildType: BuildType) {
+  if (buildType === "wall") {
+    return 1.5 + BUILDING_GROUND_CLEARANCE;
+  }
+
+  if (buildType === "snowman_turret") {
+    return 1.2 + BUILDING_GROUND_CLEARANCE;
+  }
+
+  return 0.6 + BUILDING_GROUND_CLEARANCE;
 }
 
 function createCursorMarker() {

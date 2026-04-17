@@ -4,6 +4,8 @@ import {
   FIRE_COOLDOWN_MS,
   SOLO_FINAL_PUSH_START_MS,
   SOLO_MATCH_DURATION_MS,
+  SOLO_SNOWMAN_TURRET_INTERVAL_MS,
+  SOLO_SNOWMAN_TURRET_RANGE,
   SOLO_WHITEOUT_START_MS
 } from "./constants.js";
 import { getWallStructureRotationY } from "./solo-session/buildRules.js";
@@ -204,6 +206,102 @@ describe("SoloRulesEngine", () => {
     const hitSnapshot = engine.getSnapshot();
     expect(hitSnapshot.projectiles).toHaveLength(0);
     expect(hitSnapshot.opponentPlayer.snowLoad).toBeGreaterThan(0);
+  });
+
+  it("fires at the target position captured at shot time instead of homing after launch", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess & {
+      runtime: RuntimeAccess["runtime"] & {
+        players: RuntimeAccess["runtime"]["players"];
+      };
+    };
+
+    runtime.runtime.players.A.x = 0;
+    runtime.runtime.players.A.z = 0;
+    runtime.runtime.players.B.x = 0;
+    runtime.runtime.players.B.z = -12;
+
+    setInput(engine, "A", { aimX: 0, aimY: -2, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, SOLO_SNOWMAN_TURRET_INTERVAL_MS + 50);
+
+    const firedSnapshot = engine.getSnapshot();
+    expect(firedSnapshot.projectiles).toHaveLength(1);
+
+    runtime.runtime.players.B.x = 8;
+    runtime.runtime.players.B.z = -12;
+
+    advance(engine, 750);
+
+    const travelSnapshot = engine.getSnapshot();
+    expect(travelSnapshot.projectiles).toHaveLength(1);
+    expect(travelSnapshot.projectiles[0]?.x).toBeCloseTo(0, 3);
+    expect(travelSnapshot.opponentPlayer.snowLoad).toBe(0);
+
+    advance(engine, 1_500);
+
+    const resolvedSnapshot = engine.getSnapshot();
+    expect(resolvedSnapshot.projectiles).toHaveLength(0);
+    expect(resolvedSnapshot.opponentPlayer.snowLoad).toBe(0);
+  });
+
+  it("does not auto-fire turrets when the enemy is outside turret range", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess;
+
+    runtime.runtime.players.B.x = SOLO_SNOWMAN_TURRET_RANGE;
+    runtime.runtime.players.B.z = SOLO_SNOWMAN_TURRET_RANGE;
+
+    setInput(engine, "A", { aimX: 3, aimY: 4, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, SOLO_SNOWMAN_TURRET_INTERVAL_MS + 50);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.structures).toHaveLength(1);
+    expect(snapshot.projectiles).toHaveLength(0);
+  });
+
+  it("can hit enemies beyond player snowball range while staying inside turret range", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess;
+
+    runtime.runtime.players.B.x = 3;
+    runtime.runtime.players.B.z = -15;
+
+    setInput(engine, "A", { aimX: 3, aimY: 4, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, SOLO_SNOWMAN_TURRET_INTERVAL_MS + 2_000);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.opponentPlayer.snowLoad).toBeGreaterThan(0);
+    expect(snapshot.projectiles).toHaveLength(0);
+  });
+
+  it("does not auto-fire turrets through walls", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess;
+
+    runtime.runtime.players.A.x = 0;
+    runtime.runtime.players.A.z = 0;
+    runtime.runtime.players.B.x = 0;
+    runtime.runtime.players.B.z = -8;
+
+    setInput(engine, "A", { aimX: 0, aimY: -2, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 800);
+
+    setInput(engine, "A", { aimX: 0, aimY: -5, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("wall"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, SOLO_SNOWMAN_TURRET_INTERVAL_MS + 100);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.structures).toHaveLength(2);
+    expect(snapshot.projectiles).toHaveLength(0);
   });
 
   it("awards the center bonfire reward after channeling", () => {

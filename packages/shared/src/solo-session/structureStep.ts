@@ -82,15 +82,34 @@ export function updateStructures(
       continue;
     }
 
-    const target = runtime.players[structure.ownerSlot === "A" ? "B" : "A"];
-    const distance = Math.hypot(target.x - structure.x, target.z - structure.z);
-
-    if (distance <= SOLO_SNOWMAN_TURRET_RANGE && hasLineOfSight(runtime, structure, target)) {
+    const target = getAutoTargetPlayer(runtime, structure);
+    if (target) {
       spawnTurretProjectile(runtime, structure, target);
     }
 
     structure.nextFireAt = runtime.elapsedMs + SOLO_SNOWMAN_TURRET_INTERVAL_MS;
   }
+}
+
+function getAutoTargetPlayer(
+  runtime: SoloRuntimeState,
+  structure: StructureRuntimeState
+) {
+  const candidates = Object.values(runtime.players)
+    .filter((candidate) => candidate.slot !== structure.ownerSlot && candidate.hp > 0)
+    .map((candidate) => ({
+      distance: Math.hypot(candidate.x - structure.x, candidate.z - structure.z),
+      player: candidate
+    }))
+    .filter(({ distance, player }) => {
+      return (
+        distance <= SOLO_SNOWMAN_TURRET_RANGE &&
+        hasLineOfSight(runtime, structure, player)
+      );
+    })
+    .sort((left, right) => left.distance - right.distance);
+
+  return candidates[0]?.player ?? null;
 }
 
 function hasLineOfSight(

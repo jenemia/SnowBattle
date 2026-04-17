@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import type { SessionSnapshot } from "@snowbattle/shared";
 
-import { getWallPreviewYaw, SoloOverlayRenderer } from "./overlayRenderer";
+import {
+  getBuildPreviewCenterY,
+  getWallPreviewYaw,
+  SoloOverlayRenderer
+} from "./overlayRenderer";
 
 describe("SoloOverlayRenderer", () => {
   it("computes wall preview yaw so the preview faces the local player", () => {
@@ -64,6 +68,12 @@ describe("SoloOverlayRenderer", () => {
     );
 
     expect(preview.rotation.y).toBe(0);
+  });
+
+  it("aligns build preview height with the grounded placement anchors", () => {
+    expect(getBuildPreviewCenterY("wall")).toBeCloseTo(1.53, 5);
+    expect(getBuildPreviewCenterY("snowman_turret")).toBeCloseTo(1.23, 5);
+    expect(getBuildPreviewCenterY("heater_beacon")).toBeCloseTo(0.63, 5);
   });
 });
 

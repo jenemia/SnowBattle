@@ -13,7 +13,12 @@ import {
   type SessionStructureSnapshot
 } from "@snowbattle/shared";
 
-const WALL_GROUND_CLEARANCE = 0.03;
+const BUILDING_GROUND_CLEARANCE = 0.03;
+const WALL_CENTER_Y = 1.5 + BUILDING_GROUND_CLEARANCE;
+const TURRET_BODY_CENTER_Y = 0.8 + BUILDING_GROUND_CLEARANCE;
+const TURRET_HEAD_CENTER_Y = 1.85 + BUILDING_GROUND_CLEARANCE;
+const HEATER_BASE_CENTER_Y = 0.5 + BUILDING_GROUND_CLEARANCE;
+const HEATER_AURA_Y = 0.04 + BUILDING_GROUND_CLEARANCE;
 
 export class SoloStructureRenderer {
   private readonly structureMeshes = new Map<string, THREE.Object3D>();
@@ -62,13 +67,17 @@ function createStructureMesh(structure: SessionStructureSnapshot) {
         emissiveIntensity: 0.32
       })
     );
-    body.position.y = 0.9;
+    body.position.y = TURRET_BODY_CENTER_Y;
+    body.castShadow = true;
+    body.receiveShadow = true;
     group.add(body);
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.45, 12, 12),
       new THREE.MeshStandardMaterial({ color: "#ffffff" })
     );
-    head.position.y = 1.95;
+    head.position.y = TURRET_HEAD_CENTER_Y;
+    head.castShadow = true;
+    head.receiveShadow = true;
     group.add(head);
     return group;
   }
@@ -87,7 +96,9 @@ function createStructureMesh(structure: SessionStructureSnapshot) {
       emissiveIntensity: 0.65
     })
   );
-  base.position.y = 0.6;
+  base.position.y = HEATER_BASE_CENTER_Y;
+  base.castShadow = true;
+  base.receiveShadow = true;
   group.add(base);
   const aura = new THREE.Mesh(
     new THREE.RingGeometry(
@@ -103,7 +114,7 @@ function createStructureMesh(structure: SessionStructureSnapshot) {
     })
   );
   aura.rotation.x = -Math.PI / 2;
-  aura.position.y = 0.04;
+  aura.position.y = HEATER_AURA_Y;
   group.add(aura);
   return group;
 }
@@ -124,7 +135,7 @@ export function createGroundAnchoredWall() {
         roughness: 0.42
       })
     );
-  mesh.position.y = 1.5 + WALL_GROUND_CLEARANCE;
+  mesh.position.y = WALL_CENTER_Y;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   group.add(mesh);
@@ -138,7 +149,7 @@ function updateStructureVisual(
   const maxHp = getStructureMaxHp(structure.type);
   const ratio = Math.max(0.25, structure.hp / maxHp);
 
-  object.scale.y = structure.type === "wall" ? 1 : ratio;
+  object.scale.setScalar(1);
 
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) {
@@ -152,6 +163,14 @@ function updateStructureVisual(
 
     if (structure.type === "wall") {
       material.color.set("#4dc6ff").lerp(new THREE.Color("#79e1ff"), ratio);
+    } else if (structure.type === "snowman_turret") {
+      material.color
+        .set("#d7f6ff")
+        .lerp(new THREE.Color("#ffffff"), ratio);
+    } else {
+      material.color
+        .set("#ff9d5d")
+        .lerp(new THREE.Color("#ffcf73"), ratio);
     }
 
     material.emissiveIntensity =

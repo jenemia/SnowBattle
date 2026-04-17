@@ -6,6 +6,7 @@ import {
   SOLO_MAX_PACKED_SNOW,
   SOLO_PACKED_SNOW_ON_DIRECT_HIT,
   SOLO_SNOWMAN_TURRET_LOAD,
+  SOLO_SNOWMAN_TURRET_RANGE,
   SOLO_SNOWBALL_DAMAGE,
   SOLO_SNOWBALL_LOAD,
   SOLO_SNOWBALL_RANGE,
@@ -96,7 +97,7 @@ export function updateProjectiles(runtime: SoloRuntimeState, deltaSeconds: numbe
     );
 
     if (
-      projectile.traveled >= SOLO_SNOWBALL_RANGE ||
+      projectile.traveled >= getProjectileMaxRange(projectile) ||
       projectile.expiresAt <= runtime.elapsedMs
     ) {
       runtime.projectiles.delete(projectile.id);
@@ -169,4 +170,10 @@ function findHitStructure(runtime: SoloRuntimeState, projectileX: number, projec
 
 function getSlowPenalty(snowLoad: number) {
   return Math.min(0.35, (snowLoad / 20) * 0.07);
+}
+
+function getProjectileMaxRange(projectile: ProjectileRuntimeState) {
+  return projectile.sourceType === "snowman_turret"
+    ? SOLO_SNOWMAN_TURRET_RANGE
+    : SOLO_SNOWBALL_RANGE;
 }
