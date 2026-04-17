@@ -11,6 +11,7 @@ import {
 const CURSOR_RING_Y = 0.03;
 const PREVIEW_ALPHA = 0.38;
 const BUILDING_GROUND_CLEARANCE = 0.03;
+const TURRET_GROUND_CLEARANCE = 0.18;
 
 export class SoloOverlayRenderer {
   private readonly buildPreview: THREE.Mesh;
@@ -138,7 +139,7 @@ export function getBuildPreviewCenterY(buildType: BuildType) {
   }
 
   if (buildType === "snowman_turret") {
-    return 1.2 + BUILDING_GROUND_CLEARANCE;
+    return 1.2 + TURRET_GROUND_CLEARANCE;
   }
 
   return 0.6 + BUILDING_GROUND_CLEARANCE;

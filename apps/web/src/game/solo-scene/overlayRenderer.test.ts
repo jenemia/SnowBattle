@@ -72,7 +72,7 @@ describe("SoloOverlayRenderer", () => {
 
   it("aligns build preview height with the grounded placement anchors", () => {
     expect(getBuildPreviewCenterY("wall")).toBeCloseTo(1.53, 5);
-    expect(getBuildPreviewCenterY("snowman_turret")).toBeCloseTo(1.23, 5);
+    expect(getBuildPreviewCenterY("snowman_turret")).toBeCloseTo(1.38, 5);
     expect(getBuildPreviewCenterY("heater_beacon")).toBeCloseTo(0.63, 5);
   });
 });

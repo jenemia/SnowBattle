@@ -127,6 +127,34 @@ describe("SoloRulesEngine", () => {
     expect(snapshot.localPlayer.selectedBuild).toBeNull();
   });
 
+  it("allows walls to place at the extended wall-only build range", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    setInput(engine, "A", { aimX: 0, aimY: -2, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("wall"));
+
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 50);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.structures).toHaveLength(1);
+    expect(snapshot.structures[0]?.type).toBe("wall");
+  });
+
+  it("keeps turret placement on the original shorter build range", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    setInput(engine, "A", { aimX: 0, aimY: -2, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 50);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.hud.buildPreviewValid).toBe(false);
+    expect(snapshot.structures).toHaveLength(0);
+  });
+
   it("preserves wall preview rotation on placement", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 

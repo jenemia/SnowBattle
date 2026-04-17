@@ -13,7 +13,8 @@ import {
   SOLO_STRUCTURE_COLLISION_RADIUS,
   SOLO_WALL_COST,
   SOLO_WALL_DURATION_MS,
-  SOLO_WALL_HP
+  SOLO_WALL_HP,
+  SOLO_WALL_SPAWN_RANGE
 } from "../constants.js";
 import type { BuildType, MatchPhase } from "../session.js";
 import type {
@@ -100,7 +101,7 @@ export function isBuildPreviewValid(
   }
 
   const distance = Math.hypot(player.aimX - player.x, player.aimZ - player.z);
-  if (distance > SOLO_SPAWN_RANGE) {
+  if (distance > getBuildSpawnRange(buildType)) {
     return false;
   }
 
@@ -151,3 +152,7 @@ export function createStructureState(
 }
 
 export { SOLO_BUILD_COOLDOWN_MS };
+
+function getBuildSpawnRange(buildType: BuildType) {
+  return buildType === "wall" ? SOLO_WALL_SPAWN_RANGE : SOLO_SPAWN_RANGE;
+}
