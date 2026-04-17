@@ -3,11 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SessionSnapshot } from "@snowbattle/shared";
 
-import {
-  getBuildPreviewCenterY,
-  getWallPreviewYaw,
-  SoloOverlayRenderer
-} from "./overlayRenderer";
+import { getWallPreviewYaw, SoloOverlayRenderer } from "./overlayRenderer";
 
 describe("SoloOverlayRenderer", () => {
   it("computes wall preview yaw so the preview faces the local player", () => {
@@ -49,7 +45,7 @@ describe("SoloOverlayRenderer", () => {
       })
     );
 
-    const preview = scene.children[1];
+    const preview = getVisiblePreview(scene);
     expect(preview.rotation.y).not.toBe(0);
 
     renderer.sync(
@@ -70,10 +66,28 @@ describe("SoloOverlayRenderer", () => {
     expect(preview.rotation.y).toBe(0);
   });
 
-  it("aligns build preview height with the grounded placement anchors", () => {
-    expect(getBuildPreviewCenterY("wall")).toBeCloseTo(1.53, 5);
-    expect(getBuildPreviewCenterY("snowman_turret")).toBeCloseTo(1.54, 5);
-    expect(getBuildPreviewCenterY("heater_beacon")).toBeCloseTo(0.63, 5);
+  it("matches the placed turret silhouette with a grounded body and head preview", () => {
+    const scene = new THREE.Scene();
+    const renderer = new SoloOverlayRenderer(scene);
+
+    renderer.sync(
+      createSnapshot({
+        hud: {
+          cursorX: 4,
+          cursorZ: 1,
+          pointerActive: true
+        },
+        localPlayer: {
+          selectedBuild: "snowman_turret"
+        }
+      })
+    );
+
+    const preview = getVisiblePreview(scene);
+    const bounds = new THREE.Box3().setFromObject(preview);
+
+    expect(bounds.min.y).toBeCloseTo(0.34, 5);
+    expect(bounds.max.y).toBeCloseTo(2.64, 5);
   });
 });
 
@@ -138,4 +152,16 @@ function createSnapshot(
     projectiles: [],
     structures: []
   };
+}
+
+function getVisiblePreview(scene: THREE.Scene) {
+  const preview = scene.children.find(
+    (child) => child.visible && child !== scene.children[0]
+  );
+
+  if (!preview) {
+    throw new Error("Expected a visible build preview");
+  }
+
+  return preview;
 }

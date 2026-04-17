@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 import {
   getWallStructureRotationY,
+  SOLO_HEATER_BEACON_RADIUS,
   SOLO_WALL_HALF_DEPTH,
   SOLO_WALL_HALF_WIDTH,
   type BuildType,
@@ -14,9 +15,9 @@ const BUILDING_GROUND_CLEARANCE = 0.03;
 const TURRET_GROUND_CLEARANCE = 0.34;
 
 export class SoloOverlayRenderer {
-  private readonly buildPreview: THREE.Mesh;
-  private readonly buildPreviewGeometries: Record<BuildType, THREE.BufferGeometry>;
   private readonly buildPreviewMaterial: THREE.MeshStandardMaterial;
+  private readonly buildPreviews: Record<BuildType, THREE.Object3D>;
+  private activeBuildPreview: THREE.Object3D | null = null;
   private readonly cursorMarker: THREE.Mesh;
   private readonly bonfireGroup: THREE.Group;
   private readonly bonfireLight: THREE.PointLight;
@@ -34,17 +35,15 @@ export class SoloOverlayRenderer {
       roughness: 0.35,
       transparent: true
     });
-    this.buildPreviewGeometries = {
-      heater_beacon: new THREE.CylinderGeometry(1, 1.4, 1.2, 16),
-      snowman_turret: new THREE.CylinderGeometry(0.9, 1.2, 2.4, 12),
-      wall: new THREE.BoxGeometry(SOLO_WALL_HALF_WIDTH * 2, 3, SOLO_WALL_HALF_DEPTH * 2)
+    this.buildPreviews = {
+      heater_beacon: createHeaterPreview(this.buildPreviewMaterial),
+      snowman_turret: createTurretPreview(this.buildPreviewMaterial),
+      wall: createWallPreview(this.buildPreviewMaterial)
     };
-    this.buildPreview = new THREE.Mesh(
-      this.buildPreviewGeometries.wall,
-      this.buildPreviewMaterial
-    );
-    this.buildPreview.visible = false;
-    this.scene.add(this.buildPreview);
+    for (const preview of Object.values(this.buildPreviews)) {
+      preview.visible = false;
+      this.scene.add(preview);
+    }
 
     this.whiteoutRing = new THREE.Mesh(
       new THREE.RingGeometry(1, 1.12, 80),
@@ -94,26 +93,31 @@ export class SoloOverlayRenderer {
 
     const buildType = snapshot.localPlayer.selectedBuild;
     if (buildType && snapshot.hud.pointerActive) {
-      this.buildPreview.visible = true;
-      this.buildPreview.geometry = this.buildPreviewGeometries[buildType];
-      this.buildPreview.position.set(
+      const preview = this.buildPreviews[buildType];
+
+      if (this.activeBuildPreview && this.activeBuildPreview !== preview) {
+        this.activeBuildPreview.visible = false;
+        this.activeBuildPreview.rotation.y = 0;
+      }
+
+      this.activeBuildPreview = preview;
+      preview.visible = true;
+      preview.position.set(
         snapshot.hud.cursorX,
-        getBuildPreviewCenterY(buildType),
+        0,
         snapshot.hud.cursorZ
       );
-      this.buildPreview.rotation.y =
+      preview.rotation.y =
         buildType === "wall"
           ? getWallPreviewYaw(snapshot)
           : 0;
-      this.buildPreviewMaterial.color.set(
-        snapshot.hud.buildPreviewValid ? "#7be4ff" : "#ff9f80"
-      );
-      this.buildPreviewMaterial.emissive.set(
-        snapshot.hud.buildPreviewValid ? "#7be4ff" : "#ff8f7a"
-      );
+      applyPreviewTone(preview, snapshot.hud.buildPreviewValid);
     } else {
-      this.buildPreview.visible = false;
-      this.buildPreview.rotation.y = 0;
+      if (this.activeBuildPreview) {
+        this.activeBuildPreview.visible = false;
+        this.activeBuildPreview.rotation.y = 0;
+        this.activeBuildPreview = null;
+      }
     }
 
     this.whiteoutRing.visible = snapshot.match.phase !== "standard";
@@ -133,18 +137,6 @@ export function getWallPreviewYaw(snapshot: SessionSnapshot) {
   );
 }
 
-export function getBuildPreviewCenterY(buildType: BuildType) {
-  if (buildType === "wall") {
-    return 1.5 + BUILDING_GROUND_CLEARANCE;
-  }
-
-  if (buildType === "snowman_turret") {
-    return 1.2 + TURRET_GROUND_CLEARANCE;
-  }
-
-  return 0.6 + BUILDING_GROUND_CLEARANCE;
-}
-
 function createCursorMarker() {
   const cursorMarker = new THREE.Mesh(
     new THREE.RingGeometry(0.52, 0.8, 28),
@@ -158,4 +150,63 @@ function createCursorMarker() {
   cursorMarker.rotation.x = -Math.PI / 2;
   cursorMarker.position.y = CURSOR_RING_Y;
   return cursorMarker;
+}
+
+function createWallPreview(material: THREE.MeshStandardMaterial) {
+  const group = new THREE.Group();
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(SOLO_WALL_HALF_WIDTH * 2, 3, SOLO_WALL_HALF_DEPTH * 2),
+    material
+  );
+  mesh.position.y = 1.5 + BUILDING_GROUND_CLEARANCE;
+  group.add(mesh);
+  return group;
+}
+
+function createTurretPreview(material: THREE.MeshStandardMaterial) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), material);
+  body.position.y = 0.8 + TURRET_GROUND_CLEARANCE;
+  group.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 12), material);
+  head.position.y = 1.85 + TURRET_GROUND_CLEARANCE;
+  group.add(head);
+  return group;
+}
+
+function createHeaterPreview(material: THREE.MeshStandardMaterial) {
+  const group = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 1.2, 16), material);
+  base.position.y = 0.6 + BUILDING_GROUND_CLEARANCE;
+  group.add(base);
+
+  const aura = new THREE.Mesh(
+    new THREE.RingGeometry(
+      SOLO_HEATER_BEACON_RADIUS - 0.18,
+      SOLO_HEATER_BEACON_RADIUS,
+      48
+    ),
+    material
+  );
+  aura.rotation.x = -Math.PI / 2;
+  aura.position.y = 0.04 + BUILDING_GROUND_CLEARANCE;
+  group.add(aura);
+  return group;
+}
+
+function applyPreviewTone(preview: THREE.Object3D, isValid: boolean) {
+  preview.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) {
+      return;
+    }
+
+    const material = child.material;
+    if (!(material instanceof THREE.MeshStandardMaterial)) {
+      return;
+    }
+
+    material.color.set(isValid ? "#7be4ff" : "#ff9f80");
+    material.emissive.set(isValid ? "#7be4ff" : "#ff8f7a");
+  });
 }
