@@ -1,4 +1,5 @@
 import {
+  ARENA_HALF_EXTENT,
   SOLO_BUILD_COOLDOWN_MS,
   SOLO_SNOWMAN_TURRET_INTERVAL_MS,
   SOLO_SNOWMAN_TURRET_LOAD,
@@ -7,12 +8,15 @@ import {
 } from "../constants.js";
 import type { BuildType, MatchPhase } from "../session.js";
 import { createStructureState, getBuildCost, getStructureMaxCount, isBuildPreviewValid } from "./buildRules.js";
-import { segmentHitsWall } from "./geometry.js";
+import { clamp, resolveCircleOutsideWall, segmentHitsWall } from "./geometry.js";
 import type {
   PlayerRuntimeState,
   SoloRuntimeState,
   StructureRuntimeState
 } from "./runtimeTypes.js";
+
+const PLAYER_WALL_COLLISION_RADIUS = 0.9;
+const WALL_PUSH_MARGIN = 0.05;
 
 export function trySpawnStructure(
   runtime: SoloRuntimeState,
@@ -47,6 +51,9 @@ export function trySpawnStructure(
     runtime.elapsedMs + SOLO_SNOWMAN_TURRET_INTERVAL_MS
   );
   runtime.structures.set(structure.id, structure);
+  if (structure.type === "wall") {
+    pushPlayersOutOfWall(runtime, structure);
+  }
   player.buildCooldownRemaining = SOLO_BUILD_COOLDOWN_MS;
   player.packedSnow -= cost;
   return true;
@@ -108,6 +115,30 @@ function hasLineOfSight(
       candidate.rotationY ?? 0
     );
   });
+}
+
+function pushPlayersOutOfWall(
+  runtime: SoloRuntimeState,
+  structure: StructureRuntimeState
+) {
+  for (const player of Object.values(runtime.players)) {
+    const resolved = resolveCircleOutsideWall(
+      player.x,
+      player.z,
+      PLAYER_WALL_COLLISION_RADIUS,
+      structure.x,
+      structure.z,
+      structure.rotationY ?? 0,
+      WALL_PUSH_MARGIN
+    );
+
+    if (!resolved.overlapped) {
+      continue;
+    }
+
+    player.x = clamp(resolved.x, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT);
+    player.z = clamp(resolved.z, -ARENA_HALF_EXTENT, ARENA_HALF_EXTENT);
+  }
 }
 
 function getSlowPenalty(snowLoad: number) {

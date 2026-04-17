@@ -45,6 +45,48 @@ export function segmentHitsWall(
   return false;
 }
 
+export function resolveCircleOutsideWall(
+  x: number,
+  z: number,
+  radius: number,
+  wallX: number,
+  wallZ: number,
+  wallRotationY = 0,
+  margin = 0
+) {
+  const { x: localX, z: localZ } = rotateIntoWallSpace(x, z, wallX, wallZ, wallRotationY);
+  const paddedHalfWidth = SOLO_WALL_HALF_WIDTH + radius + margin;
+  const paddedHalfDepth = SOLO_WALL_HALF_DEPTH + radius + margin;
+
+  if (Math.abs(localX) > paddedHalfWidth || Math.abs(localZ) > paddedHalfDepth) {
+    return { overlapped: false, x, z };
+  }
+
+  const pushX = paddedHalfWidth - Math.abs(localX);
+  const pushZ = paddedHalfDepth - Math.abs(localZ);
+  const nextLocalX =
+    pushX < pushZ
+      ? getEscapeSign(localX, localZ) * paddedHalfWidth
+      : localX;
+  const nextLocalZ =
+    pushX < pushZ
+      ? localZ
+      : getEscapeSign(localZ, localX) * paddedHalfDepth;
+  const world = rotateOutOfWallSpace(
+    nextLocalX,
+    nextLocalZ,
+    wallX,
+    wallZ,
+    wallRotationY
+  );
+
+  return {
+    overlapped: true,
+    x: world.x,
+    z: world.z
+  };
+}
+
 function rotateIntoWallSpace(
   x: number,
   z: number,
@@ -61,4 +103,32 @@ function rotateIntoWallSpace(
     x: deltaX * cosine + deltaZ * sine,
     z: -deltaX * sine + deltaZ * cosine
   };
+}
+
+function rotateOutOfWallSpace(
+  localX: number,
+  localZ: number,
+  wallX: number,
+  wallZ: number,
+  wallRotationY: number
+) {
+  const cosine = Math.cos(wallRotationY);
+  const sine = Math.sin(wallRotationY);
+
+  return {
+    x: wallX + localX * cosine - localZ * sine,
+    z: wallZ + localX * sine + localZ * cosine
+  };
+}
+
+function getEscapeSign(primary: number, fallback: number) {
+  if (primary < 0) {
+    return -1;
+  }
+
+  if (primary > 0) {
+    return 1;
+  }
+
+  return fallback < 0 ? -1 : 1;
 }

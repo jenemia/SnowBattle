@@ -158,6 +158,31 @@ describe("SoloRulesEngine", () => {
     );
   });
 
+  it("pushes nearby players out of a newly placed wall", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess;
+
+    runtime.runtime.players.A.x = 4;
+    runtime.runtime.players.A.z = 8;
+    runtime.runtime.players.B.x = 6;
+    runtime.runtime.players.B.z = 5;
+
+    setInput(engine, "A", { aimX: 4, aimY: 5, pointerActive: true });
+    engine.receiveCommand("A", {
+      type: "build:select",
+      payload: { buildType: "wall" }
+    });
+
+    engine.receiveCommand("A", { type: "action:primary" });
+    advance(engine, 50);
+
+    const snapshot = engine.getSnapshot();
+
+    expect(snapshot.structures).toHaveLength(1);
+    expect(snapshot.opponentPlayer.x).toBeCloseTo(6.45, 5);
+    expect(snapshot.opponentPlayer.z).toBeCloseTo(5, 5);
+  });
+
   it("awards the center bonfire reward after channeling", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
