@@ -1,5 +1,6 @@
 import {
   SERVER_TICK_RATE,
+  type SessionSnapshot,
   type BuildType,
   type GameSessionProvider
 } from "@snowbattle/shared";
@@ -146,6 +147,10 @@ export class SoloInputController {
     }
 
     const movement = getNormalizedMovement(this.pressedKeys);
+    const orientedMovement = orientMovementForSnapshot(
+      movement,
+      this.provider.getLatestSnapshot()
+    );
     const worldPoint = this.pointerActive
       ? this.scene.screenPointToWorld(this.pointerClientX, this.pointerClientY)
       : null;
@@ -155,10 +160,24 @@ export class SoloInputController {
       payload: {
         aimX: worldPoint?.x ?? 0,
         aimY: worldPoint?.z ?? 0,
-        moveX: movement.x,
-        moveY: movement.y,
+        moveX: orientedMovement.x,
+        moveY: orientedMovement.y,
         pointerActive: worldPoint !== null
       }
     });
   }
+}
+
+function orientMovementForSnapshot(
+  movement: { x: number; y: number },
+  snapshot: SessionSnapshot | null
+) {
+  if (snapshot?.localPlayer.slot !== "B") {
+    return movement;
+  }
+
+  return {
+    x: -movement.x,
+    y: -movement.y
+  };
 }

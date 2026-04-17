@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SERVER_TICK_RATE } from "@snowbattle/shared";
+import {
+  SERVER_TICK_RATE,
+  type SessionSnapshot
+} from "@snowbattle/shared";
 
 import { SoloInputController } from "./SoloInputController";
 
@@ -136,14 +139,42 @@ describe("SoloInputController", () => {
     });
     expect(scene.screenPointToWorld).toHaveBeenCalledTimes(2);
   });
+
+  it("mirrors movement input for slot B so screen-relative controls stay fixed", () => {
+    const snapshot = createSnapshot("B");
+    const { controller, provider } = createController(undefined, snapshot);
+
+    controller.connect();
+    controller.handleKeyDown({
+      code: "ArrowUp",
+      key: "ArrowUp",
+      preventDefault: vi.fn()
+    } as unknown as KeyboardEvent);
+    controller.handleKeyDown({
+      code: "ArrowRight",
+      key: "ArrowRight",
+      preventDefault: vi.fn()
+    } as unknown as KeyboardEvent);
+
+    vi.advanceTimersByTime(1000 / SERVER_TICK_RATE);
+    controller.disconnect();
+
+    const [update] = getInputUpdates(provider.send);
+    expect(update?.payload.moveX).toBeCloseTo(-Math.SQRT1_2, 5);
+    expect(update?.payload.moveY).toBeCloseTo(Math.SQRT1_2, 5);
+  });
 });
 
 type ControllerHarness = ReturnType<typeof createController>;
 
 function createController(
-  sceneOverride?: { screenPointToWorld: () => { x: number; z: number } | null }
+  sceneOverride?: { screenPointToWorld: () => { x: number; z: number } | null },
+  snapshotOverride: SessionSnapshot | null = null
 ) {
-  const provider = { send: vi.fn() };
+  const provider = {
+    getLatestSnapshot: vi.fn(() => snapshotOverride),
+    send: vi.fn()
+  };
   const scene = {
     screenPointToWorld: vi.fn(
       sceneOverride?.screenPointToWorld ?? (() => null)
@@ -186,4 +217,60 @@ function getInputUpdates(send: ControllerHarness["provider"]["send"]) {
   return send.mock.calls
     .map(([command]) => command)
     .filter((command) => command.type === "input:update");
+}
+
+function createSnapshot(
+  slot: SessionSnapshot["localPlayer"]["slot"]
+): SessionSnapshot {
+  return {
+    hud: {
+      activeBonfire: false,
+      buildPreviewValid: true,
+      cursorX: 0,
+      cursorZ: 0,
+      pointerActive: false,
+      result: null
+    },
+    localPlayer: {
+      buildCooldownRemaining: 0,
+      connected: true,
+      facingAngle: 0,
+      guestName: "You",
+      hp: 100,
+      packedSnow: 100,
+      ready: true,
+      selectedBuild: null,
+      slowMultiplier: 1,
+      slot,
+      snowLoad: 0,
+      x: 0,
+      z: slot === "B" ? -10 : 10
+    },
+    match: {
+      centerBonfireState: "idle",
+      centerControlTime: { A: 0, B: 0 },
+      countdownRemainingMs: 0,
+      lifecycle: "in_match",
+      phase: "standard",
+      timeRemainingMs: 180_000,
+      whiteoutRadius: 22
+    },
+    opponentPlayer: {
+      buildCooldownRemaining: 0,
+      connected: true,
+      facingAngle: 0,
+      guestName: "Opponent",
+      hp: 100,
+      packedSnow: 100,
+      ready: true,
+      selectedBuild: null,
+      slowMultiplier: 1,
+      slot: slot === "A" ? "B" : "A",
+      snowLoad: 0,
+      x: 0,
+      z: slot === "B" ? 10 : -10
+    },
+    projectiles: [],
+    structures: []
+  };
 }
