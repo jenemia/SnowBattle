@@ -1,3 +1,4 @@
+export * from "./blockyCharacterAssets";
 export * from "./cameraController";
 export * from "./environment";
 export * from "./overlayRenderer";

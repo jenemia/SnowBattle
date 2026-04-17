@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_MATCH_RULES,
@@ -36,7 +36,9 @@ describe("SoloPlayerRenderer", () => {
     renderer.sync(createSnapshot(0, 10, 60), 1);
 
     const localRunner = scene.children[0] as THREE.Group;
-    const snowDrift = localRunner.children[2] as THREE.Mesh;
+    const snowDrift = localRunner.children.find(
+      (child) => child instanceof THREE.Mesh && child.geometry instanceof THREE.SphereGeometry
+    ) as THREE.Mesh;
     const bounds = new THREE.Box3().setFromObject(snowDrift);
 
     expect(snowDrift.visible).toBe(true);
@@ -45,7 +47,70 @@ describe("SoloPlayerRenderer", () => {
     expect(snowDrift.position.y).toBeLessThan(0.5);
     expect(snowDrift.scale.x).toBeGreaterThan(snowDrift.scale.y);
   });
+
+  it("loads a blocky character, keeps the team ring, and switches to walk motion", async () => {
+    const scene = new THREE.Scene();
+    const clock = { elapsedTime: 0 } as THREE.Clock;
+    const loadCharacterInstance = vi.fn(async () => ({
+      animations: [
+        new THREE.AnimationClip("idle", -1, []),
+        new THREE.AnimationClip("walk", -1, [])
+      ],
+      root: createMockCharacterRoot()
+    }));
+    const renderer = new SoloPlayerRenderer(scene, clock, {
+      loadCharacterInstance
+    });
+
+    renderer.sync(createSnapshot(0, 10), 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    renderer.sync(createSnapshot(2, 8), 1 / 60);
+
+    const internals = renderer as unknown as {
+      playerMeshes: Map<
+        string,
+        {
+          actions: Partial<Record<"idle" | "walk", THREE.AnimationAction>>;
+          activeCharacterId: string | null;
+          currentMotion: "idle" | "walk" | null;
+          group: THREE.Group;
+        }
+      >;
+    };
+    const localRunner = internals.playerMeshes.get("A");
+
+    expect(loadCharacterInstance).toHaveBeenCalledTimes(2);
+    expect(localRunner?.activeCharacterId).toBeTruthy();
+    expect(localRunner?.currentMotion).toBe("walk");
+    expect(
+      localRunner?.group.children.some(
+        (child) => child instanceof THREE.Mesh && child.name === "player-local-team-ring"
+      )
+    ).toBe(true);
+    expect(localRunner?.actions.idle).toBeTruthy();
+    expect(localRunner?.actions.walk).toBeTruthy();
+    expect(
+      localRunner?.group.children.some(
+        (child) =>
+          child instanceof THREE.Group &&
+          child.name === `player-${localRunner.activeCharacterId}`
+      )
+    ).toBe(true);
+  });
 });
+
+function createMockCharacterRoot() {
+  const root = new THREE.Group();
+  root.name = "mock-blocky-character";
+  const torso = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 1.2, 0.5),
+    new THREE.MeshStandardMaterial({ color: "#ffffff" })
+  );
+  torso.position.y = 1.2;
+  root.add(torso);
+  return root;
+}
 
 function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
   return {
