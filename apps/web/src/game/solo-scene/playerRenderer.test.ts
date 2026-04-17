@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
-import type { SessionSnapshot } from "@snowbattle/shared";
+import {
+  DEFAULT_MATCH_RULES,
+  type SessionSnapshot
+} from "@snowbattle/shared";
 
 import { SoloPlayerRenderer } from "./playerRenderer";
 
@@ -75,7 +78,7 @@ function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 120_000,
+      timeRemainingMs: DEFAULT_MATCH_RULES.matchDurationMs,
       whiteoutRadius: 22
     },
     opponentPlayer: {

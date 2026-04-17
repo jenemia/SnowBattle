@@ -1,7 +1,6 @@
 export const ARENA_HALF_EXTENT = 22;
 export const COUNTDOWN_MS = 3000;
 export const MATCH_DURATION_MS = 90_000;
-export const SOLO_MATCH_DURATION_MS = 120_000;
 export const PLAYER_SPEED = 9;
 export const PROJECTILE_SPEED = 18;
 export const PROJECTILE_TTL_MS = 2200;
@@ -51,7 +50,4 @@ export const SOLO_WALL_DURATION_MS = 14_000;
 export const SOLO_WALL_HP = 120;
 export const SOLO_WHITEOUT_CENTER_CONTROL_RADIUS = 4;
 export const SOLO_WHITEOUT_PLAYER_DAMAGE_PER_SECOND = 6;
-export const SOLO_WHITEOUT_START_MS = 60_000;
 export const SOLO_WHITEOUT_STRUCTURE_DAMAGE_PER_SECOND = 20;
-export const SOLO_WHITEOUT_TARGET_RADIUS = 5;
-export const SOLO_FINAL_PUSH_START_MS = 90_000;

@@ -1,6 +1,7 @@
 import {
   COUNTDOWN_MS,
   SoloRulesEngine,
+  type MatchRules,
   type InputUpdateCommand,
   type MatchLifecycle,
   type MatchResultMessage,
@@ -27,6 +28,10 @@ interface AddPlayerOptions {
   sessionId: string;
 }
 
+interface DuelMatchControllerOptions {
+  rules?: Partial<MatchRules>;
+}
+
 export class DuelMatchController {
   private countdownEndsAt: number | null = null;
   private engine: SoloRulesEngine | null = null;
@@ -39,7 +44,10 @@ export class DuelMatchController {
 
   lifecycle: MatchLifecycle = "waiting";
 
-  constructor(public readonly roomId: string) {}
+  constructor(
+    public readonly roomId: string,
+    private readonly options: DuelMatchControllerOptions = {}
+  ) {}
 
   addPlayer({ guestName, sessionId }: AddPlayerOptions) {
     const slot = this.nextAvailableSlot();
@@ -187,7 +195,8 @@ export class DuelMatchController {
         this.engine = new SoloRulesEngine({
           botEnabled: false,
           guestNames: this.buildGuestNameMap(),
-          localSlot: "A"
+          localSlot: "A",
+          rules: this.options.rules
         });
         this.invalidateState();
       }

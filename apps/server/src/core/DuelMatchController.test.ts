@@ -118,4 +118,29 @@ describe("DuelMatchController", () => {
     expect(controller.getAckInputSeq("a")).toBe(3);
     expect(controller.getSnapshotFor("a")?.structures).toHaveLength(1);
   });
+
+  it("can start a duel with custom match rules", () => {
+    const customRules = {
+      finalPushStartMs: 55_000,
+      matchDurationMs: 75_000,
+      whiteoutStartMs: 30_000
+    };
+    const controller = new DuelMatchController("room-6", {
+      rules: customRules
+    });
+    controller.addPlayer({ sessionId: "a", guestName: "Alpha" });
+    controller.addPlayer({ sessionId: "b", guestName: "Beta" });
+    controller.setReady("a", true);
+    controller.setReady("b", true);
+    controller.maybeStartCountdown(1_000);
+    controller.tick(COUNTDOWN_MS + 1, 1_000 + COUNTDOWN_MS + 1);
+    controller.tick(30_000, 1_000 + COUNTDOWN_MS + 1 + 30_000);
+
+    const snapshot = controller.getSnapshotFor("a");
+
+    expect(snapshot?.match.phase).toBe("whiteout");
+    expect(snapshot?.match.timeRemainingMs).toBe(
+      customRules.matchDurationMs - customRules.whiteoutStartMs
+    );
+  });
 });

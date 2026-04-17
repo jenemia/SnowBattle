@@ -1,4 +1,5 @@
 import { PLAYER_SPAWN_OFFSET, SOLO_MAX_PACKED_SNOW } from "../constants.js";
+import { createMatchRules } from "../matchRules.js";
 import type { SlotId } from "../protocol.js";
 import type { SoloRulesEngineOptions } from "../soloSession.js";
 import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
@@ -41,6 +42,7 @@ export function createInitialState(options: SoloRulesEngineOptions = {}): SoloRu
     B: options.guestNames?.B ?? (botEnabled ? "Bot" : "Opponent")
   };
   const localSlot = options.localSlot ?? "A";
+  const rules = createMatchRules(options.rules);
 
   return {
     botEnabled,
@@ -61,6 +63,7 @@ export function createInitialState(options: SoloRulesEngineOptions = {}): SoloRu
     },
     projectileCounter: 0,
     projectiles: new Map(),
+    rules,
     structures: new Map()
   };
 }

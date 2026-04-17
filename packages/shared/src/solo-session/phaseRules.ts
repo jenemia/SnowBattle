@@ -1,19 +1,13 @@
-import {
-  ARENA_HALF_EXTENT,
-  SOLO_FINAL_PUSH_START_MS,
-  SOLO_MATCH_DURATION_MS,
-  SOLO_WHITEOUT_START_MS,
-  SOLO_WHITEOUT_TARGET_RADIUS
-} from "../constants.js";
+import { ARENA_HALF_EXTENT } from "../constants.js";
 import type { MatchPhase, SessionResultSnapshot } from "../session.js";
 import type { SoloRuntimeState } from "./runtimeTypes.js";
 
 export function getCurrentPhase(runtime: SoloRuntimeState): MatchPhase {
-  if (runtime.elapsedMs >= SOLO_FINAL_PUSH_START_MS) {
+  if (runtime.elapsedMs >= runtime.rules.finalPushStartMs) {
     return "final_push";
   }
 
-  if (runtime.elapsedMs >= SOLO_WHITEOUT_START_MS) {
+  if (runtime.elapsedMs >= runtime.rules.whiteoutStartMs) {
     return "whiteout";
   }
 
@@ -21,30 +15,30 @@ export function getCurrentPhase(runtime: SoloRuntimeState): MatchPhase {
 }
 
 export function getWhiteoutRadius(runtime: SoloRuntimeState) {
-  if (runtime.elapsedMs < SOLO_WHITEOUT_START_MS) {
+  if (runtime.elapsedMs < runtime.rules.whiteoutStartMs) {
     return ARENA_HALF_EXTENT;
   }
 
-  if (runtime.elapsedMs >= SOLO_FINAL_PUSH_START_MS) {
-    return SOLO_WHITEOUT_TARGET_RADIUS;
+  if (runtime.elapsedMs >= runtime.rules.finalPushStartMs) {
+    return runtime.rules.whiteoutTargetRadius;
   }
 
   const progress =
-    (runtime.elapsedMs - SOLO_WHITEOUT_START_MS) /
-    (SOLO_FINAL_PUSH_START_MS - SOLO_WHITEOUT_START_MS);
+    (runtime.elapsedMs - runtime.rules.whiteoutStartMs) /
+    (runtime.rules.finalPushStartMs - runtime.rules.whiteoutStartMs);
 
   return (
     ARENA_HALF_EXTENT -
-    (ARENA_HALF_EXTENT - SOLO_WHITEOUT_TARGET_RADIUS) * progress
+    (ARENA_HALF_EXTENT - runtime.rules.whiteoutTargetRadius) * progress
   );
 }
 
 export function getTimeRemainingMs(runtime: SoloRuntimeState) {
-  return Math.max(0, SOLO_MATCH_DURATION_MS - runtime.elapsedMs);
+  return Math.max(0, runtime.rules.matchDurationMs - runtime.elapsedMs);
 }
 
 export function isMatchExpired(runtime: SoloRuntimeState) {
-  return runtime.elapsedMs >= SOLO_MATCH_DURATION_MS;
+  return runtime.elapsedMs >= runtime.rules.matchDurationMs;
 }
 
 export function resolveTimeout(

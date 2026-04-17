@@ -1,4 +1,4 @@
-import { SOLO_MATCH_DURATION_MS } from "./constants.js";
+import type { MatchRules } from "./matchRules.js";
 import type { SlotId } from "./protocol.js";
 import type { MatchPhase, SessionCommand } from "./session.js";
 import {
@@ -22,6 +22,7 @@ export interface SoloRulesEngineOptions {
   botEnabled?: boolean;
   guestNames?: Partial<Record<SlotId, string>>;
   localSlot?: SlotId;
+  rules?: Partial<MatchRules>;
 }
 
 export class SoloRulesEngine {
@@ -44,7 +45,10 @@ export class SoloRulesEngine {
       return;
     }
 
-    this.runtime.elapsedMs = Math.min(SOLO_MATCH_DURATION_MS, this.runtime.elapsedMs + deltaMs);
+    this.runtime.elapsedMs = Math.min(
+      this.runtime.rules.matchDurationMs,
+      this.runtime.elapsedMs + deltaMs
+    );
     const phase = getCurrentPhase(this.runtime);
     const whiteoutRadius = getWhiteoutRadius(this.runtime);
     const localPlayer = this.runtime.players[this.runtime.localSlot];

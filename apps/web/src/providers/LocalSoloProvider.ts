@@ -1,6 +1,7 @@
 import {
   SERVER_TICK_RATE,
   SoloRulesEngine,
+  type MatchRules,
   type AuthoritativeStateEnvelope,
   type GameSessionProvider,
   type SessionMeta,
@@ -8,6 +9,10 @@ import {
   type SessionProviderEvent,
   type SessionSnapshot
 } from "@snowbattle/shared";
+
+export interface LocalSoloProviderOptions {
+  rules?: Partial<MatchRules>;
+}
 
 export class LocalSoloProvider implements GameSessionProvider {
   private animationFrame = 0;
@@ -27,9 +32,14 @@ export class LocalSoloProvider implements GameSessionProvider {
   private readonly stateListeners = new Set<
     (state: AuthoritativeStateEnvelope) => void
   >();
-  private readonly engine = new SoloRulesEngine({
-    guestNames: { A: "You", B: "Bot" }
-  });
+  private readonly engine: SoloRulesEngine;
+
+  constructor(options: LocalSoloProviderOptions = {}) {
+    this.engine = new SoloRulesEngine({
+      guestNames: { A: "You", B: "Bot" },
+      rules: options.rules
+    });
+  }
 
   connect() {
     if (this.connected) {

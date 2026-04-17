@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GameSessionProvider, SessionSnapshot } from "@snowbattle/shared";
+import {
+  DEFAULT_MATCH_RULES,
+  type GameSessionProvider,
+  type SessionSnapshot
+} from "@snowbattle/shared";
 
 const mockState = vi.hoisted(() => ({
   input: null as {
@@ -160,7 +164,7 @@ function createSnapshot(): SessionSnapshot {
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 120_000,
+      timeRemainingMs: DEFAULT_MATCH_RULES.matchDurationMs,
       whiteoutRadius: 22
     },
     opponentPlayer: {

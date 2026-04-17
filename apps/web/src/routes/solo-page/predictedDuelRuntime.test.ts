@@ -2,12 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AuthoritativeStateEnvelope,
+  MatchRules,
   GameSessionProvider,
   SessionMeta,
   SessionSnapshot
 } from "@snowbattle/shared";
+import { DEFAULT_MATCH_RULES } from "@snowbattle/shared";
 
 import { PredictedDuelRuntime } from "./predictedDuelRuntime";
+
+type SnapshotOverrides = Partial<
+  Omit<SessionSnapshot, "hud" | "localPlayer" | "match" | "opponentPlayer">
+> & {
+  hud?: Partial<SessionSnapshot["hud"]>;
+  localPlayer?: Partial<SessionSnapshot["localPlayer"]>;
+  match?: Partial<SessionSnapshot["match"]>;
+  opponentPlayer?: Partial<SessionSnapshot["opponentPlayer"]>;
+};
 
 describe("PredictedDuelRuntime", () => {
   let animationFrame: FrameRequestCallback | null = null;
@@ -64,7 +75,9 @@ describe("PredictedDuelRuntime", () => {
     animationFrame?.(20);
 
     expect(frames.at(-1)?.localPlayer.z).toBeLessThan(10);
-    expect(frames.at(-1)?.match.timeRemainingMs).toBeLessThan(120_000);
+    expect(frames.at(-1)?.match.timeRemainingMs).toBeLessThan(
+      DEFAULT_MATCH_RULES.matchDurationMs
+    );
 
     latestEnvelope = createEnvelope(createSnapshot(), 1, 2);
     latestSnapshot = latestEnvelope.snapshot;
@@ -74,6 +87,61 @@ describe("PredictedDuelRuntime", () => {
     animationFrame?.(40);
 
     expect(frames.at(-1)?.localPlayer.z).toBeCloseTo(10, 2);
+
+    runtime.stop();
+  });
+
+  it("respects injected match rules when reconstructing predicted time", () => {
+    const rules: MatchRules = {
+      ...DEFAULT_MATCH_RULES,
+      finalPushStartMs: 55_000,
+      matchDurationMs: 75_000,
+      whiteoutStartMs: 30_000
+    };
+    const meta: SessionMeta = {
+      guestName: "Alpha",
+      localSlot: "A",
+      opponentGuestName: "Beta",
+      roomId: "room-2"
+    };
+    const snapshot = createSnapshot({
+      match: {
+        phase: "whiteout",
+        timeRemainingMs: rules.matchDurationMs - rules.whiteoutStartMs
+      }
+    });
+    const envelope = createEnvelope(snapshot, 0, 1);
+    const provider = createProvider(meta, () => snapshot, () => envelope);
+    const runtime = new PredictedDuelRuntime(provider, { rules });
+    const frames: SessionSnapshot[] = [];
+
+    runtime.subscribe((frame) => {
+      frames.push(frame.snapshot);
+    });
+    runtime.start();
+    runtime.captureCommand({
+      inputSeq: 1,
+      payload: {
+        aimX: 0,
+        aimY: 0,
+        moveX: 0,
+        moveY: -1,
+        pointerActive: false
+      },
+      sentAtClientTime: 1,
+      type: "input:update"
+    });
+
+    now = 20;
+    animationFrame?.(20);
+
+    expect((runtime as unknown as { predictedRuntime: { elapsedMs: number } | null }).predictedRuntime?.elapsedMs).toBe(
+      rules.whiteoutStartMs
+    );
+    expect(frames.at(-1)?.match.phase).toBe("whiteout");
+    expect(frames.at(-1)?.match.timeRemainingMs).toBe(
+      rules.matchDurationMs - rules.whiteoutStartMs
+    );
 
     runtime.stop();
   });
@@ -118,7 +186,7 @@ function createEnvelope(
   };
 }
 
-function createSnapshot(): SessionSnapshot {
+function createSnapshot(overrides?: SnapshotOverrides): SessionSnapshot {
   return {
     hud: {
       activeBonfire: false,
@@ -126,7 +194,8 @@ function createSnapshot(): SessionSnapshot {
       cursorX: 0,
       cursorZ: 0,
       pointerActive: false,
-      result: null
+      result: null,
+      ...overrides?.hud
     },
     localPlayer: {
       buildCooldownRemaining: 0,
@@ -141,7 +210,8 @@ function createSnapshot(): SessionSnapshot {
       slot: "A",
       snowLoad: 0,
       x: 0,
-      z: 10
+      z: 10,
+      ...overrides?.localPlayer
     },
     match: {
       centerBonfireState: "idle",
@@ -149,8 +219,9 @@ function createSnapshot(): SessionSnapshot {
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 120_000,
-      whiteoutRadius: 22
+      timeRemainingMs: DEFAULT_MATCH_RULES.matchDurationMs,
+      whiteoutRadius: 22,
+      ...overrides?.match
     },
     opponentPlayer: {
       buildCooldownRemaining: 0,
@@ -165,9 +236,10 @@ function createSnapshot(): SessionSnapshot {
       slot: "B",
       snowLoad: 0,
       x: 0,
-      z: -10
+      z: -10,
+      ...overrides?.opponentPlayer
     },
-    projectiles: [],
-    structures: []
+    projectiles: overrides?.projectiles ?? [],
+    structures: overrides?.structures ?? []
   };
 }

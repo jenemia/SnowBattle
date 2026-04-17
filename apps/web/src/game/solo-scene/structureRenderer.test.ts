@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_MATCH_RULES,
   SOLO_HEATER_BEACON_HP,
   SOLO_SNOWMAN_TURRET_HP,
   SOLO_WALL_HP,
@@ -121,7 +122,7 @@ function createSnapshot(
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 120_000,
+      timeRemainingMs: DEFAULT_MATCH_RULES.matchDurationMs,
       whiteoutRadius: 22
     },
     opponentPlayer: {

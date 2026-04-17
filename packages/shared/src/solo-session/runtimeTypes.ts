@@ -1,3 +1,4 @@
+import type { MatchRules } from "../matchRules.js";
 import type { SlotId } from "../protocol.js";
 import type {
   SessionPlayerSnapshot,
@@ -45,5 +46,6 @@ export interface SoloRuntimeState {
   players: Record<SlotId, PlayerRuntimeState>;
   projectileCounter: number;
   projectiles: Map<string, ProjectileRuntimeState>;
+  rules: MatchRules;
   structures: Map<string, StructureRuntimeState>;
 }

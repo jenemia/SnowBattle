@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   FIRE_COOLDOWN_MS,
-  SOLO_FINAL_PUSH_START_MS,
-  SOLO_MATCH_DURATION_MS,
   SOLO_SNOWMAN_TURRET_INTERVAL_MS,
-  SOLO_SNOWMAN_TURRET_RANGE,
-  SOLO_WHITEOUT_START_MS
+  SOLO_SNOWMAN_TURRET_RANGE
 } from "./constants.js";
+import {
+  DEFAULT_MATCH_RULES,
+  createMatchRules
+} from "./matchRules.js";
 import { getWallStructureRotationY } from "./solo-session/buildRules.js";
 import { SoloRulesEngine } from "./soloSession.js";
 import type { SlotId } from "./protocol.js";
@@ -73,16 +74,21 @@ describe("SoloRulesEngine", () => {
   it("transitions from standard to whiteout and final push across the solo timeline", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
-    advance(engine, SOLO_WHITEOUT_START_MS - 50);
+    advance(engine, DEFAULT_MATCH_RULES.whiteoutStartMs - 50);
     expect(engine.getSnapshot().match.phase).toBe("standard");
 
     advance(engine, 50);
     expect(engine.getSnapshot().match.phase).toBe("whiteout");
 
-    advance(engine, SOLO_FINAL_PUSH_START_MS - SOLO_WHITEOUT_START_MS);
+    advance(
+      engine,
+      DEFAULT_MATCH_RULES.finalPushStartMs - DEFAULT_MATCH_RULES.whiteoutStartMs
+    );
     const snapshot = engine.getSnapshot();
     expect(snapshot.match.phase).toBe("final_push");
-    expect(snapshot.match.timeRemainingMs).toBe(30_000);
+    expect(snapshot.match.timeRemainingMs).toBe(
+      DEFAULT_MATCH_RULES.matchDurationMs - DEFAULT_MATCH_RULES.finalPushStartMs
+    );
   });
 
   it("applies whiteout damage to players stranded outside the shrinking ring", () => {
@@ -100,12 +106,14 @@ describe("SoloRulesEngine", () => {
   it("holds the whiteout ring at radius 5 once final push begins", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
-    advance(engine, SOLO_FINAL_PUSH_START_MS);
+    advance(engine, DEFAULT_MATCH_RULES.finalPushStartMs);
 
     const snapshot = engine.getSnapshot();
     expect(snapshot.match.phase).toBe("final_push");
-    expect(snapshot.match.whiteoutRadius).toBe(5);
-    expect(snapshot.match.timeRemainingMs).toBe(30_000);
+    expect(snapshot.match.whiteoutRadius).toBe(DEFAULT_MATCH_RULES.whiteoutTargetRadius);
+    expect(snapshot.match.timeRemainingMs).toBe(
+      DEFAULT_MATCH_RULES.matchDurationMs - DEFAULT_MATCH_RULES.finalPushStartMs
+    );
   });
 
   it("blocks build placements during final push", () => {
@@ -114,7 +122,7 @@ describe("SoloRulesEngine", () => {
     setInput(engine, "A", { aimY: 5, pointerActive: true });
     engine.receiveCommand("A", buildSelect("wall"));
 
-    advance(engine, SOLO_FINAL_PUSH_START_MS);
+    advance(engine, DEFAULT_MATCH_RULES.finalPushStartMs);
     engine.receiveCommand("A", actionPrimary());
     advance(engine, 50);
 
@@ -361,7 +369,7 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
+    runtime.runtime.elapsedMs = DEFAULT_MATCH_RULES.matchDurationMs - 50;
     runtime.runtime.players.A.x = 0;
     runtime.runtime.players.A.z = 0;
     runtime.runtime.players.B.x = 0;
@@ -383,7 +391,7 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
+    runtime.runtime.elapsedMs = DEFAULT_MATCH_RULES.matchDurationMs - 50;
     runtime.runtime.players.A.x = 0;
     runtime.runtime.players.A.z = 0;
     runtime.runtime.players.B.x = 0;
@@ -407,7 +415,7 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - 50;
+    runtime.runtime.elapsedMs = DEFAULT_MATCH_RULES.matchDurationMs - 50;
     runtime.runtime.players.A.x = 0;
     runtime.runtime.players.A.z = 0;
     runtime.runtime.players.B.x = 0;
@@ -433,7 +441,7 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
     const runtime = engine as unknown as RuntimeAccess;
 
-    runtime.runtime.elapsedMs = SOLO_MATCH_DURATION_MS - FIRE_COOLDOWN_MS;
+    runtime.runtime.elapsedMs = DEFAULT_MATCH_RULES.matchDurationMs - FIRE_COOLDOWN_MS;
     runtime.runtime.players.A.x = 0;
     runtime.runtime.players.A.z = 0;
     runtime.runtime.players.B.x = 0;
@@ -455,6 +463,30 @@ describe("SoloRulesEngine", () => {
       winnerSlot: null,
       reason: "timeout"
     });
+  });
+
+  it("supports custom match rules through the engine options", () => {
+    const rules = createMatchRules({
+      finalPushStartMs: 55_000,
+      matchDurationMs: 75_000,
+      whiteoutStartMs: 30_000,
+      whiteoutTargetRadius: 7
+    });
+    const engine = new SoloRulesEngine({
+      botEnabled: false,
+      rules
+    });
+
+    advance(engine, rules.whiteoutStartMs);
+    expect(engine.getSnapshot().match.phase).toBe("whiteout");
+
+    advance(engine, rules.finalPushStartMs - rules.whiteoutStartMs);
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.match.phase).toBe("final_push");
+    expect(snapshot.match.whiteoutRadius).toBe(rules.whiteoutTargetRadius);
+    expect(snapshot.match.timeRemainingMs).toBe(
+      rules.matchDurationMs - rules.finalPushStartMs
+    );
   });
 });
 

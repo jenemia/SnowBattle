@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DEFAULT_MATCH_RULES,
   SERVER_TICK_RATE,
   type SessionSnapshot
 } from "@snowbattle/shared";
@@ -311,7 +312,7 @@ function createSnapshot(
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 120_000,
+      timeRemainingMs: DEFAULT_MATCH_RULES.matchDurationMs,
       whiteoutRadius: 22
     },
     opponentPlayer: {

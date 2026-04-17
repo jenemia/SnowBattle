@@ -1,5 +1,5 @@
 import {
-  SOLO_MATCH_DURATION_MS,
+  createMatchRules,
   createInitialState,
   createSnapshot,
   getCurrentPhase,
@@ -14,6 +14,7 @@ import {
   updateStructures,
   type AuthoritativeStateEnvelope,
   type GameSessionProvider,
+  type MatchRules,
   type PresentationFrame,
   type SessionCommand,
   type SessionProjectileSnapshot,
@@ -34,6 +35,10 @@ interface BufferedEnvelope {
   receivedAt: number;
 }
 
+interface PredictedDuelRuntimeOptions {
+  rules?: MatchRules;
+}
+
 export class PredictedDuelRuntime {
   private accumulatorMs = 0;
   private readonly bufferedEnvelopes: BufferedEnvelope[] = [];
@@ -43,9 +48,15 @@ export class PredictedDuelRuntime {
   private pendingCommands: SessionCommand[] = [];
   private predictedRuntime: SoloRuntimeState | null = null;
   private rafId = 0;
+  private readonly rules: MatchRules;
   private running = false;
 
-  constructor(private readonly provider: GameSessionProvider) {}
+  constructor(
+    private readonly provider: GameSessionProvider,
+    options: PredictedDuelRuntimeOptions = {}
+  ) {
+    this.rules = createMatchRules(options.rules);
+  }
 
   start() {
     if (this.running) {
@@ -93,7 +104,8 @@ export class PredictedDuelRuntime {
     );
     this.predictedRuntime = createRuntimeFromSnapshot(
       envelope.snapshot,
-      this.predictedRuntime
+      this.predictedRuntime,
+      this.rules
     );
 
     for (const command of this.pendingCommands) {
@@ -110,7 +122,8 @@ export class PredictedDuelRuntime {
       if (latestEnvelope) {
         this.predictedRuntime = createRuntimeFromSnapshot(
           latestEnvelope.snapshot,
-          this.predictedRuntime
+          this.predictedRuntime,
+          this.rules
         );
       }
     }
@@ -202,7 +215,7 @@ function stepPredictedRuntime(runtime: SoloRuntimeState, deltaMs: number) {
     return;
   }
 
-  runtime.elapsedMs = Math.min(SOLO_MATCH_DURATION_MS, runtime.elapsedMs + deltaMs);
+  runtime.elapsedMs = Math.min(runtime.rules.matchDurationMs, runtime.elapsedMs + deltaMs);
   const phase = getCurrentPhase(runtime);
   const whiteoutRadius = getWhiteoutRadius(runtime);
   const localPlayer = runtime.players[runtime.localSlot];
@@ -230,7 +243,8 @@ function stepPredictedRuntime(runtime: SoloRuntimeState, deltaMs: number) {
 
 function createRuntimeFromSnapshot(
   snapshot: SessionSnapshot,
-  previousRuntime: SoloRuntimeState | null
+  previousRuntime: SoloRuntimeState | null,
+  rules: MatchRules
 ): SoloRuntimeState {
   const localSlot = snapshot.localPlayer.slot;
   const playersBySlot = buildPlayersBySlot(snapshot);
@@ -240,11 +254,15 @@ function createRuntimeFromSnapshot(
       A: playersBySlot.A.guestName,
       B: playersBySlot.B.guestName
     },
-    localSlot
+    localSlot,
+    rules
   });
-  const elapsedMs = SOLO_MATCH_DURATION_MS - snapshot.match.timeRemainingMs;
+  const elapsedMs = runtime.rules.matchDurationMs - snapshot.match.timeRemainingMs;
 
-  runtime.elapsedMs = Math.max(0, Math.min(SOLO_MATCH_DURATION_MS, elapsedMs));
+  runtime.elapsedMs = Math.max(
+    0,
+    Math.min(runtime.rules.matchDurationMs, elapsedMs)
+  );
   runtime.centerControlTime = {
     A: snapshot.match.centerControlTime.A,
     B: snapshot.match.centerControlTime.B
