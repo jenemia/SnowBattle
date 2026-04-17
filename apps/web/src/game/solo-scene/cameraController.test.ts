@@ -19,15 +19,21 @@ describe("getCameraRigTargets", () => {
     const slotATargets = getCameraRigTargets(slotASnapshot);
     const slotBTargets = getCameraRigTargets(slotBSnapshot);
 
-    const slotAFocusZ =
-      slotASnapshot.localPlayer.z +
-      (slotASnapshot.hud.cursorZ - slotASnapshot.localPlayer.z) * 0.32;
-    const slotBFocusZ =
-      slotBSnapshot.localPlayer.z +
-      (slotBSnapshot.hud.cursorZ - slotBSnapshot.localPlayer.z) * 0.32;
+    expect(slotATargets.lookTarget.x).toBe(slotASnapshot.localPlayer.x);
+    expect(slotBTargets.lookTarget.x).toBe(slotBSnapshot.localPlayer.x);
+    expect(slotATargets.lookTarget.z).toBeCloseTo(slotASnapshot.localPlayer.z + 0.4);
+    expect(slotBTargets.lookTarget.z).toBeCloseTo(slotBSnapshot.localPlayer.z - 0.4);
+  });
 
-    expect(slotATargets.lookTarget.z - slotAFocusZ).toBeCloseTo(0.4);
-    expect(slotBTargets.lookTarget.z - slotBFocusZ).toBeCloseTo(-0.4);
+  it("does not drift the look target toward the cursor", () => {
+    const snapshot = createSnapshot("A", 10);
+    snapshot.hud.cursorX = 18;
+    snapshot.hud.cursorZ = -14;
+
+    const targets = getCameraRigTargets(snapshot);
+
+    expect(targets.lookTarget.x).toBe(snapshot.localPlayer.x);
+    expect(targets.lookTarget.z).toBeCloseTo(snapshot.localPlayer.z + 0.4);
   });
 });
 

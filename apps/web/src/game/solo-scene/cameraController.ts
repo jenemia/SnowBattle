@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { ARENA_HALF_EXTENT, type SessionSnapshot } from "@snowbattle/shared";
 
 const CAMERA_HEIGHT = 34;
-const CAMERA_LERP_SPEED = 4.4;
+const CAMERA_LERP_SPEED = 8;
 const CAMERA_LOOK_TARGET_Z_BIAS = 0.4;
 const CAMERA_OFFSET_Z = 22;
 
@@ -104,12 +104,6 @@ function applyCameraRigTargets(
   lookTarget: THREE.Vector3
 ) {
   const zDirection = snapshot.localPlayer.slot === "B" ? -1 : 1;
-  const focusX =
-    snapshot.localPlayer.x +
-    (snapshot.hud.cursorX - snapshot.localPlayer.x) * 0.32;
-  const focusZ =
-    snapshot.localPlayer.z +
-    (snapshot.hud.cursorZ - snapshot.localPlayer.z) * 0.32;
 
   position.set(
     snapshot.localPlayer.x,
@@ -117,9 +111,9 @@ function applyCameraRigTargets(
     snapshot.localPlayer.z + CAMERA_OFFSET_Z * zDirection
   );
   lookTarget.set(
-    focusX,
+    snapshot.localPlayer.x,
     1.5,
-    focusZ + CAMERA_LOOK_TARGET_Z_BIAS * zDirection
+    snapshot.localPlayer.z + CAMERA_LOOK_TARGET_Z_BIAS * zDirection
   );
 }
 
