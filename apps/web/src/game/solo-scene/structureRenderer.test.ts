@@ -43,6 +43,21 @@ describe("SoloStructureRenderer", () => {
     expect(bounds.min.y).toBeCloseTo(0, 5);
     expect(bounds.max.y).toBeCloseTo(1.5, 5);
   });
+
+  it("applies persisted wall rotation during sync", () => {
+    const scene = new THREE.Scene();
+    const renderer = new SoloStructureRenderer(scene);
+
+    renderer.sync(
+      createSnapshot([
+        createWall({
+          rotationY: Math.PI / 3
+        })
+      ])
+    );
+
+    expect(scene.children[0]?.rotation.y).toBeCloseTo(Math.PI / 3, 5);
+  });
 });
 
 function createSnapshot(

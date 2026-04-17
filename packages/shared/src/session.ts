@@ -66,6 +66,7 @@ export interface SessionStructureSnapshot {
   ownerSlot: SlotId;
   x: number;
   z: number;
+  rotationY?: number;
   hp: number;
   expiresAt: number;
   enabled: boolean;

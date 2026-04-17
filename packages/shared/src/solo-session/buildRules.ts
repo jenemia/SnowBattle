@@ -64,6 +64,22 @@ export function getStructureMaxCount(buildType: BuildType) {
   return buildType === "wall" ? SOLO_MAX_WALLS : HEATER_OR_TURRET_LIMIT;
 }
 
+export function getWallStructureRotationY(
+  playerX: number,
+  playerZ: number,
+  wallX: number,
+  wallZ: number
+) {
+  const deltaX = playerX - wallX;
+  const deltaZ = playerZ - wallZ;
+
+  if (Math.hypot(deltaX, deltaZ) <= 0.001) {
+    return 0;
+  }
+
+  return Math.atan2(deltaX, deltaZ);
+}
+
 export function isBuildPreviewValid(
   runtime: SoloRuntimeState,
   player: PlayerRuntimeState,
@@ -124,6 +140,10 @@ export function createStructureState(
     id: `${buildType}-${player.slot}-${runtime.structures.size + 1}`,
     nextFireAt,
     ownerSlot: player.slot,
+    rotationY:
+      buildType === "wall"
+        ? getWallStructureRotationY(player.x, player.z, player.aimX, player.aimZ)
+        : 0,
     type: buildType,
     x: player.aimX,
     z: player.aimZ

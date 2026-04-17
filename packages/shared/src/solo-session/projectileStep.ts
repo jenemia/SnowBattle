@@ -95,7 +95,14 @@ function applyDirectHit(
 function findHitStructure(runtime: SoloRuntimeState, projectileX: number, projectileZ: number) {
   return [...runtime.structures.values()].find((structure) => {
     if (structure.type === "wall") {
-      return circleIntersectsWall(projectileX, projectileZ, 0.28, structure.x, structure.z);
+      return circleIntersectsWall(
+        projectileX,
+        projectileZ,
+        0.28,
+        structure.x,
+        structure.z,
+        structure.rotationY ?? 0
+      );
     }
 
     return (

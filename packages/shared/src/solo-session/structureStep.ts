@@ -104,7 +104,8 @@ function hasLineOfSight(
       target.x,
       target.z,
       candidate.x,
-      candidate.z
+      candidate.z,
+      candidate.rotationY ?? 0
     );
   });
 }

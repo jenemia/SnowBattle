@@ -106,7 +106,16 @@ function resolveWallMovement(
       continue;
     }
 
-    if (circleIntersectsWall(resolvedX, player.z, 0.9, structure.x, structure.z)) {
+    if (
+      circleIntersectsWall(
+        resolvedX,
+        player.z,
+        0.9,
+        structure.x,
+        structure.z,
+        structure.rotationY ?? 0
+      )
+    ) {
       resolvedX = player.x;
       break;
     }
@@ -119,7 +128,16 @@ function resolveWallMovement(
       continue;
     }
 
-    if (circleIntersectsWall(resolvedX, resolvedZ, 0.9, structure.x, structure.z)) {
+    if (
+      circleIntersectsWall(
+        resolvedX,
+        resolvedZ,
+        0.9,
+        structure.x,
+        structure.z,
+        structure.rotationY ?? 0
+      )
+    ) {
       resolvedZ = player.z;
       break;
     }

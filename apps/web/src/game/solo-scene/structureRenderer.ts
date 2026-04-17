@@ -31,6 +31,7 @@ export class SoloStructureRenderer {
       }
 
       object.position.set(structure.x, 0, structure.z);
+      object.rotation.y = structure.rotationY ?? 0;
       object.visible = structure.enabled;
       updateStructureVisual(object, structure);
     }

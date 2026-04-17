@@ -6,6 +6,7 @@ import {
   SOLO_MATCH_DURATION_MS,
   SOLO_WHITEOUT_START_MS
 } from "./constants.js";
+import { getWallStructureRotationY } from "./solo-session/buildRules.js";
 import { SoloRulesEngine } from "./soloSession.js";
 import type { SlotId } from "./protocol.js";
 
@@ -128,6 +129,33 @@ describe("SoloRulesEngine", () => {
     const snapshot = engine.getSnapshot();
     expect(snapshot.structures).toHaveLength(1);
     expect(snapshot.localPlayer.selectedBuild).toBeNull();
+  });
+
+  it("preserves wall preview rotation on placement", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    setInput(engine, "A", { aimX: 4, aimY: 5, pointerActive: true });
+    engine.receiveCommand("A", {
+      type: "build:select",
+      payload: { buildType: "wall" }
+    });
+
+    engine.receiveCommand("A", { type: "action:primary" });
+    advance(engine, 50);
+
+    const snapshot = engine.getSnapshot();
+    const wall = snapshot.structures[0];
+
+    expect(wall).toBeDefined();
+    expect(wall?.rotationY).toBeCloseTo(
+      getWallStructureRotationY(
+        snapshot.localPlayer.x,
+        snapshot.localPlayer.z,
+        wall!.x,
+        wall!.z
+      ),
+      5
+    );
   });
 
   it("awards the center bonfire reward after channeling", () => {

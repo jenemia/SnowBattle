@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import {
+  getWallStructureRotationY,
   SOLO_WALL_HALF_DEPTH,
   SOLO_WALL_HALF_WIDTH,
   type BuildType,
@@ -12,6 +13,7 @@ const PREVIEW_ALPHA = 0.38;
 
 export class SoloOverlayRenderer {
   private readonly buildPreview: THREE.Mesh;
+  private readonly buildPreviewGeometries: Record<BuildType, THREE.BufferGeometry>;
   private readonly buildPreviewMaterial: THREE.MeshStandardMaterial;
   private readonly cursorMarker: THREE.Mesh;
   private readonly bonfireGroup: THREE.Group;
@@ -30,8 +32,13 @@ export class SoloOverlayRenderer {
       roughness: 0.35,
       transparent: true
     });
+    this.buildPreviewGeometries = {
+      heater_beacon: new THREE.CylinderGeometry(1, 1.4, 1.2, 16),
+      snowman_turret: new THREE.CylinderGeometry(0.9, 1.2, 2.4, 12),
+      wall: new THREE.BoxGeometry(SOLO_WALL_HALF_WIDTH * 2, 3, SOLO_WALL_HALF_DEPTH * 2)
+    };
     this.buildPreview = new THREE.Mesh(
-      new THREE.BoxGeometry(SOLO_WALL_HALF_WIDTH * 2, 3, SOLO_WALL_HALF_DEPTH * 2),
+      this.buildPreviewGeometries.wall,
       this.buildPreviewMaterial
     );
     this.buildPreview.visible = false;
@@ -86,7 +93,7 @@ export class SoloOverlayRenderer {
     const buildType = snapshot.localPlayer.selectedBuild;
     if (buildType && snapshot.hud.pointerActive) {
       this.buildPreview.visible = true;
-      updatePreviewGeometry(this.buildPreview, buildType);
+      this.buildPreview.geometry = this.buildPreviewGeometries[buildType];
       this.buildPreview.position.set(
         snapshot.hud.cursorX,
         buildType === "wall" ? 1.5 : 0.8,
@@ -116,14 +123,12 @@ export class SoloOverlayRenderer {
 }
 
 export function getWallPreviewYaw(snapshot: SessionSnapshot) {
-  const deltaX = snapshot.localPlayer.x - snapshot.hud.cursorX;
-  const deltaZ = snapshot.localPlayer.z - snapshot.hud.cursorZ;
-
-  if (Math.hypot(deltaX, deltaZ) <= 0.001) {
-    return 0;
-  }
-
-  return Math.atan2(deltaX, deltaZ);
+  return getWallStructureRotationY(
+    snapshot.localPlayer.x,
+    snapshot.localPlayer.z,
+    snapshot.hud.cursorX,
+    snapshot.hud.cursorZ
+  );
 }
 
 function createCursorMarker() {
@@ -139,24 +144,4 @@ function createCursorMarker() {
   cursorMarker.rotation.x = -Math.PI / 2;
   cursorMarker.position.y = CURSOR_RING_Y;
   return cursorMarker;
-}
-
-function updatePreviewGeometry(mesh: THREE.Mesh, buildType: BuildType) {
-  mesh.geometry.dispose();
-
-  if (buildType === "wall") {
-    mesh.geometry = new THREE.BoxGeometry(
-      SOLO_WALL_HALF_WIDTH * 2,
-      3,
-      SOLO_WALL_HALF_DEPTH * 2
-    );
-    return;
-  }
-
-  if (buildType === "snowman_turret") {
-    mesh.geometry = new THREE.CylinderGeometry(0.9, 1.2, 2.4, 12);
-    return;
-  }
-
-  mesh.geometry = new THREE.CylinderGeometry(1, 1.4, 1.2, 16);
 }
