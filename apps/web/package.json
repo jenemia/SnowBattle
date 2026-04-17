@@ -11,7 +11,7 @@
     "lint": "eslint \"src/**/*.ts\"",
     "test": "npm run build --workspace @snowbattle/shared && vitest run --passWithNoTests",
     "playwright:install": "playwright install chromium",
-    "test:e2e": "npm run build && npm run build --workspace @snowbattle/server && playwright test"
+    "test:e2e": "VITE_SERVER_URL=ws://localhost:2569 npm run build && npm run build --workspace @snowbattle/server && playwright test"
   },
   "dependencies": {
     "@colyseus/sdk": "^0.17.40",

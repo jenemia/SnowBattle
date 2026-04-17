@@ -13,6 +13,7 @@
     "test": "npm run build --workspace @snowbattle/shared && vitest run"
   },
   "dependencies": {
+    "@colyseus/sdk": "^0.17.40",
     "@colyseus/ws-transport": "^0.17.13",
     "@snowbattle/shared": "0.1.0",
     "colyseus": "^0.17.9",

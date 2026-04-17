@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const webDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+const e2eServerPort = 2569;
 
 export default defineConfig({
   fullyParallel: false,
@@ -20,11 +21,11 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run start:e2e --workspace @snowbattle/server",
+      command: `PORT=${e2eServerPort} npm run start:e2e --workspace @snowbattle/server`,
       cwd: repoRoot,
       reuseExistingServer: true,
       timeout: 120_000,
-      url: "http://localhost:2567/health"
+      url: `http://localhost:${e2eServerPort}/health`
     },
     {
       command: "npm run preview",
