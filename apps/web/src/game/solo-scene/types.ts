@@ -8,5 +8,5 @@ export interface RunnerParts {
   leftLeg: THREE.Mesh;
   rightArm: THREE.Mesh;
   rightLeg: THREE.Mesh;
-  snowCap: THREE.Mesh;
+  snowDrift: THREE.Mesh;
 }

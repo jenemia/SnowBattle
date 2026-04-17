@@ -24,9 +24,27 @@ describe("SoloPlayerRenderer", () => {
     expect(localRunner.position.z).toBeLessThan(10);
     expect(localRunner.position.z).toBeGreaterThan(6);
   });
+
+  it("renders snow buildup near the feet instead of above the head", () => {
+    const scene = new THREE.Scene();
+    const clock = { elapsedTime: 0 } as THREE.Clock;
+    const renderer = new SoloPlayerRenderer(scene, clock);
+
+    renderer.sync(createSnapshot(0, 10, 60), 1);
+
+    const localRunner = scene.children[0] as THREE.Group;
+    const snowDrift = localRunner.children[2] as THREE.Mesh;
+    const bounds = new THREE.Box3().setFromObject(snowDrift);
+
+    expect(snowDrift.visible).toBe(true);
+    expect(bounds.min.y).toBeLessThan(0.4);
+    expect(bounds.max.y).toBeLessThan(1.2);
+    expect(snowDrift.position.y).toBeLessThan(0.5);
+    expect(snowDrift.scale.x).toBeGreaterThan(snowDrift.scale.y);
+  });
 });
 
-function createSnapshot(x: number, z: number): SessionSnapshot {
+function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
   return {
     hud: {
       activeBonfire: false,
@@ -47,7 +65,7 @@ function createSnapshot(x: number, z: number): SessionSnapshot {
       selectedBuild: null,
       slowMultiplier: 1,
       slot: "A",
-      snowLoad: 0,
+      snowLoad,
       x,
       z
     },

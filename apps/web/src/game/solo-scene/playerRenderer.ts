@@ -19,6 +19,8 @@ const PLAYER_PALETTE = {
   }
 } as const;
 const PLAYER_POSITION_LERP_SPEED = 8;
+const SNOW_DRIFT_BASE_SCALE_XZ = 0.72;
+const SNOW_DRIFT_BASE_SCALE_Y = 0.2;
 
 export class SoloPlayerRenderer {
   private readonly playerMeshes = new Map<string, RunnerParts>();
@@ -47,10 +49,13 @@ export class SoloPlayerRenderer {
       const headMaterial = runner.head.material as THREE.MeshStandardMaterial;
       bodyMaterial.color.copy(palette.body).lerp(BODY_SNOW_TINT, snowBlend * 0.7);
       bodyMaterial.emissive.copy(palette.emissive);
-      headMaterial.color.copy(palette.head).lerp(HEAD_SNOW_TINT, snowBlend * 0.8);
-      runner.snowCap.visible = snowBlend > 0.05;
-      runner.snowCap.scale.setScalar(0.65 + snowBlend * 0.9);
-      runner.snowCap.position.y = 3.95 + snowBlend * 0.2;
+      headMaterial.color.copy(palette.head).lerp(HEAD_SNOW_TINT, snowBlend * 0.25);
+      runner.snowDrift.visible = snowBlend > 0.05;
+      runner.snowDrift.scale.set(
+        SNOW_DRIFT_BASE_SCALE_XZ + snowBlend * 1.1,
+        SNOW_DRIFT_BASE_SCALE_Y + snowBlend * 0.18,
+        SNOW_DRIFT_BASE_SCALE_XZ + snowBlend * 1.1
+      );
       if (isNewRunner) {
         runner.group.position.set(player.x, 0.1, player.z);
       } else {
@@ -101,8 +106,8 @@ function createRunner(isLocal: boolean): RunnerParts {
   head.castShadow = true;
   group.add(head);
 
-  const snowCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.58, 10, 10),
+  const snowDrift = new THREE.Mesh(
+    new THREE.SphereGeometry(0.82, 12, 12),
     new THREE.MeshStandardMaterial({
       color: "#f6fdff",
       emissive: "#d8f5ff",
@@ -111,10 +116,14 @@ function createRunner(isLocal: boolean): RunnerParts {
       transparent: true
     })
   );
-  snowCap.position.set(0, 3.95, 0.18);
-  snowCap.scale.setScalar(0.65);
-  snowCap.visible = false;
-  group.add(snowCap);
+  snowDrift.position.set(0, 0.36, 0.08);
+  snowDrift.scale.set(
+    SNOW_DRIFT_BASE_SCALE_XZ,
+    SNOW_DRIFT_BASE_SCALE_Y,
+    SNOW_DRIFT_BASE_SCALE_XZ
+  );
+  snowDrift.visible = false;
+  group.add(snowDrift);
 
   const limbMaterial = new THREE.MeshStandardMaterial({
     color: isLocal ? "#60cf3f" : "#ff82cf",
@@ -155,7 +164,7 @@ function createRunner(isLocal: boolean): RunnerParts {
     leftLeg,
     rightArm,
     rightLeg,
-    snowCap
+    snowDrift
   };
 }
 
