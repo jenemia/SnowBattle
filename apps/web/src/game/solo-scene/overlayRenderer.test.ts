@@ -89,15 +89,42 @@ describe("SoloOverlayRenderer", () => {
     expect(bounds.min.y).toBeCloseTo(0.34, 5);
     expect(bounds.max.y).toBeCloseTo(2.64, 5);
   });
+
+  it("scales the whiteout ring down to the new 5-unit final radius", () => {
+    const scene = new THREE.Scene();
+    const renderer = new SoloOverlayRenderer(scene);
+
+    renderer.sync(
+      createSnapshot({
+        match: {
+          phase: "final_push",
+          whiteoutRadius: 5
+        }
+      })
+    );
+
+    const whiteoutRing = scene.children.find((child) => {
+      return (
+        child instanceof THREE.Mesh &&
+        child.geometry instanceof THREE.RingGeometry &&
+        child.position.y === 0.04
+      );
+    });
+
+    expect(whiteoutRing).toBeInstanceOf(THREE.Mesh);
+    expect(whiteoutRing?.visible).toBe(true);
+    expect(whiteoutRing?.scale.x).toBeCloseTo(5, 5);
+  });
 });
 
 function createSnapshot(
   overrides?: {
     hud?: Partial<SessionSnapshot["hud"]>;
     localPlayer?: Partial<SessionSnapshot["localPlayer"]>;
+    match?: Partial<SessionSnapshot["match"]>;
   }
 ): SessionSnapshot {
-  const { hud, localPlayer } = overrides ?? {};
+  const { hud, localPlayer, match } = overrides ?? {};
 
   return {
     hud: {
@@ -131,8 +158,9 @@ function createSnapshot(
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 180_000,
-      whiteoutRadius: 22
+      timeRemainingMs: 120_000,
+      whiteoutRadius: 22,
+      ...match
     },
     opponentPlayer: {
       buildCooldownRemaining: 0,

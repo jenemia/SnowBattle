@@ -11,9 +11,12 @@ test("solo sandbox supports movement and snowballs", async ({
   const cursor = page.getByTestId("solo-cursor");
   const preview = page.getByTestId("solo-preview");
   const status = page.getByTestId("solo-status");
+  const timerBadge = page.getByTestId("solo-timer-badge");
 
   await expect(viewport).toBeVisible();
   await expect(status).toHaveText("Combat");
+  await expect(timerBadge).toBeVisible();
+  await expect(timerBadge).toContainText(/0[12]:[0-5]\d/);
 
   const box = await viewport.boundingBox();
 

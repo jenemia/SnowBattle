@@ -33,6 +33,14 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
       </section>
       <section class="arena">
         <div class="viewport" id="viewport" data-testid="multiplayer-viewport"></div>
+        <div
+          class="match-timer-badge"
+          id="multiplayer-timer-badge"
+          data-testid="multiplayer-timer-badge"
+          hidden
+        >
+          02:00
+        </div>
         <div class="hud">
           <div class="panel" id="multiplayer-queue-panel">
             <h2>Live Queue</h2>
@@ -98,7 +106,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
                 </div>
                 <div>
                   <span>Time</span>
-                  <strong id="multiplayer-time" data-testid="multiplayer-time">180.0s</strong>
+                  <strong id="multiplayer-time" data-testid="multiplayer-time">02:00</strong>
                 </div>
                 <div>
                   <span>HP</span>
@@ -202,6 +210,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
   const playerBState = root.querySelector<HTMLElement>("#player-b-state");
   const sessionStatus = root.querySelector<HTMLElement>("#multiplayer-session-status");
   const sessionMode = root.querySelector<HTMLElement>("#multiplayer-session-mode");
+  const timerBadge = root.querySelector<HTMLElement>("#multiplayer-timer-badge");
   const phase = root.querySelector<HTMLElement>("#multiplayer-phase");
   const time = root.querySelector<HTMLElement>("#multiplayer-time");
   const hp = root.querySelector<HTMLElement>("#multiplayer-hp");
@@ -247,6 +256,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     !playerBState ||
     !sessionStatus ||
     !sessionMode ||
+    !timerBadge ||
     !phase ||
     !time ||
     !hp ||
@@ -315,6 +325,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     statusPill,
     statusStage,
     structures,
+    timerBadge,
     time,
     viewport
   };
@@ -372,6 +383,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
           snowLoad: ui.snowLoad,
           status: ui.status,
           structures: ui.structures,
+          timerBadge: ui.timerBadge,
           time: ui.time
         },
         hud,
@@ -480,6 +492,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     ui.queuePanel.hidden = !surfaceState.showQueuePanel;
     ui.debugPanel.hidden = !surfaceState.showDebugPanel;
     ui.prodSkillStrip.hidden = !surfaceState.showProdSkillStrip;
+    ui.timerBadge.hidden = surfaceState.showQueuePanel;
     latestSurfaceState = surfaceState;
   }
 }

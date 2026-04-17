@@ -26,6 +26,7 @@ export interface SoloHudViewModel {
   snowLoadText: string;
   statusText: string;
   structuresText: string;
+  timerBadgeText: string;
   timeText: string;
 }
 
@@ -48,6 +49,7 @@ export interface SessionHudElements {
   snowLoad: HTMLElement;
   status: HTMLElement;
   structures: HTMLElement;
+  timerBadge?: HTMLElement;
   time: HTMLElement;
 }
 
@@ -96,7 +98,8 @@ export function presentSessionHud(
           ? "Combat"
           : "Build",
     structuresText: String(snapshot.structures.length),
-    timeText: `${(snapshot.match.timeRemainingMs / 1000).toFixed(1)}s`
+    timerBadgeText: formatMatchClock(snapshot.match.timeRemainingMs),
+    timeText: formatMatchClock(snapshot.match.timeRemainingMs)
   };
 }
 
@@ -130,6 +133,9 @@ export function renderSessionHud(
   setTextIfChanged(elements.snowLoad, previous?.snowLoadText, hud.snowLoadText);
   setTextIfChanged(elements.status, previous?.statusText, hud.statusText);
   setTextIfChanged(elements.structures, previous?.structuresText, hud.structuresText);
+  if (elements.timerBadge) {
+    setTextIfChanged(elements.timerBadge, previous?.timerBadgeText, hud.timerBadgeText);
+  }
   setTextIfChanged(elements.time, previous?.timeText, hud.timeText);
 
   if (elements.actionButton) {
@@ -240,6 +246,14 @@ function getReadoutText(
   return snapshot.hud.buildPreviewValid
     ? `Build ${snapshot.localPlayer.selectedBuild}. Click to place.`
     : `Build ${snapshot.localPlayer.selectedBuild}. Move to a valid spot.`;
+}
+
+function formatMatchClock(timeRemainingMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(timeRemainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 interface SessionHudCopy {

@@ -82,19 +82,30 @@ describe("SoloRulesEngine", () => {
     advance(engine, SOLO_FINAL_PUSH_START_MS - SOLO_WHITEOUT_START_MS);
     const snapshot = engine.getSnapshot();
     expect(snapshot.match.phase).toBe("final_push");
-    expect(snapshot.match.timeRemainingMs).toBe(15_000);
+    expect(snapshot.match.timeRemainingMs).toBe(30_000);
   });
 
   it("applies whiteout damage to players stranded outside the shrinking ring", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
-    advance(engine, 160_000);
+    advance(engine, 85_000);
 
     const snapshot = engine.getSnapshot();
     expect(snapshot.match.phase).toBe("whiteout");
     expect(snapshot.match.whiteoutRadius).toBeLessThan(10);
     expect(snapshot.localPlayer.hp).toBeLessThan(100);
     expect(snapshot.opponentPlayer.hp).toBeLessThan(100);
+  });
+
+  it("holds the whiteout ring at radius 5 once final push begins", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    advance(engine, SOLO_FINAL_PUSH_START_MS);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.match.phase).toBe("final_push");
+    expect(snapshot.match.whiteoutRadius).toBe(5);
+    expect(snapshot.match.timeRemainingMs).toBe(30_000);
   });
 
   it("blocks build placements during final push", () => {

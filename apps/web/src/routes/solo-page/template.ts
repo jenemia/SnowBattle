@@ -18,6 +18,7 @@ export interface SoloPageElements {
   snowLoad: HTMLElement;
   status: HTMLElement;
   structures: HTMLElement;
+  timerBadge: HTMLElement;
   time: HTMLElement;
   viewport: HTMLElement;
 }
@@ -41,6 +42,13 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
       </section>
       <section class="arena">
         <div class="viewport" id="solo-viewport" data-testid="solo-viewport"></div>
+        <div
+          class="match-timer-badge"
+          id="solo-timer-badge"
+          data-testid="solo-timer-badge"
+        >
+          02:00
+        </div>
         <div class="hud hud--solo">
           <div class="panel panel--solo">
             <h2>Solo Test</h2>
@@ -59,7 +67,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
               </div>
               <div>
                 <span>Time</span>
-                <strong id="solo-time" data-testid="solo-time">180.0s</strong>
+                <strong id="solo-time" data-testid="solo-time">02:00</strong>
               </div>
               <div>
                 <span>HP</span>
@@ -135,6 +143,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
   const mode = root.querySelector<HTMLElement>("#solo-mode");
   const readout = root.querySelector<HTMLElement>("#solo-readout");
   const structures = root.querySelector<HTMLElement>("#solo-structures");
+  const timerBadge = root.querySelector<HTMLElement>("#solo-timer-badge");
   const time = root.querySelector<HTMLElement>("#solo-time");
 
   if (
@@ -157,6 +166,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     !mode ||
     !readout ||
     !structures ||
+    !timerBadge ||
     !time
   ) {
     throw new Error("Missing solo UI nodes");
@@ -182,6 +192,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     snowLoad,
     status,
     structures,
+    timerBadge,
     time,
     viewport
   };
