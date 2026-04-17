@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { SessionSnapshot } from "@snowbattle/shared";
 
-import { getCameraRigTargets } from "./cameraController";
+import {
+  getCameraRigQuaternion,
+  getCameraRigTargets,
+  SoloSceneCameraController
+} from "./cameraController";
 
 describe("getCameraRigTargets", () => {
   it("keeps slot A chased from positive Z and slot B from negative Z", () => {
@@ -34,6 +38,24 @@ describe("getCameraRigTargets", () => {
 
     expect(targets.lookTarget.x).toBe(snapshot.localPlayer.x);
     expect(targets.lookTarget.z).toBeCloseTo(snapshot.localPlayer.z + 0.4);
+  });
+
+  it("keeps a fixed camera rotation while following the player", () => {
+    const controller = new SoloSceneCameraController();
+    const firstSnapshot = createSnapshot("A", 10);
+    const secondSnapshot = createSnapshot("A", 14);
+    secondSnapshot.localPlayer.x = 12;
+
+    controller.update(firstSnapshot, 1);
+    const firstQuaternion = controller.camera.quaternion.clone();
+
+    controller.update(secondSnapshot, 0.016);
+
+    expect(controller.camera.quaternion.angleTo(firstQuaternion)).toBeCloseTo(0, 10);
+    expect(controller.camera.quaternion.angleTo(getCameraRigQuaternion("A"))).toBeCloseTo(
+      0,
+      10
+    );
   });
 });
 
