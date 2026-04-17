@@ -64,6 +64,7 @@ describe("PredictedDuelRuntime", () => {
     animationFrame?.(20);
 
     expect(frames.at(-1)?.localPlayer.z).toBeLessThan(10);
+    expect(frames.at(-1)?.match.timeRemainingMs).toBeLessThan(120_000);
 
     latestEnvelope = createEnvelope(createSnapshot(), 1, 2);
     latestSnapshot = latestEnvelope.snapshot;
@@ -148,7 +149,7 @@ function createSnapshot(): SessionSnapshot {
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 180_000,
+      timeRemainingMs: 120_000,
       whiteoutRadius: 22
     },
     opponentPlayer: {

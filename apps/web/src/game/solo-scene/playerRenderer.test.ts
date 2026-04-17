@@ -57,7 +57,7 @@ function createSnapshot(x: number, z: number): SessionSnapshot {
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 180_000,
+      timeRemainingMs: 120_000,
       whiteoutRadius: 22
     },
     opponentPlayer: {

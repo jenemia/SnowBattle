@@ -492,7 +492,7 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     ui.queuePanel.hidden = !surfaceState.showQueuePanel;
     ui.debugPanel.hidden = !surfaceState.showDebugPanel;
     ui.prodSkillStrip.hidden = !surfaceState.showProdSkillStrip;
-    ui.timerBadge.hidden = !surfaceState.showDebugPanel;
+    ui.timerBadge.hidden = surfaceState.showQueuePanel;
     latestSurfaceState = surfaceState;
   }
 }

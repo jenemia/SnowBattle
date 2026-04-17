@@ -39,6 +39,8 @@ test("two browser clients stay in sync through the shared duel provider", async 
   await expect(pageB.getByTestId("multiplayer-opponent-name")).toHaveText("Alpha");
   await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Combat");
   await expect(pageA.getByTestId("multiplayer-phase")).toHaveText("standard");
+  await expect(pageA.getByTestId("multiplayer-timer-badge")).toBeVisible();
+  await expect(pageA.getByTestId("multiplayer-timer-badge")).toContainText(/0[12]:[0-5]\d/);
   await expect(pageA.getByTestId("multiplayer-build")).toHaveText("combat");
   await expect(pageA.getByTestId("multiplayer-readout")).toContainText("Combat mode");
 
