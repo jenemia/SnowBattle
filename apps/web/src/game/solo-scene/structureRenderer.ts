@@ -46,24 +46,7 @@ export class SoloStructureRenderer {
 
 function createStructureMesh(structure: SessionStructureSnapshot) {
   if (structure.type === "wall") {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(
-        SOLO_WALL_HALF_WIDTH * 2,
-        3,
-        SOLO_WALL_HALF_DEPTH * 2
-      ),
-      new THREE.MeshStandardMaterial({
-        color: "#79e1ff",
-        emissive: "#7be4ff",
-        emissiveIntensity: 0.3,
-        metalness: 0.05,
-        roughness: 0.42
-      })
-    );
-    mesh.position.y = 1.5;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
+    return createGroundAnchoredWall();
   }
 
   if (structure.type === "snowman_turret") {
@@ -119,6 +102,29 @@ function createStructureMesh(structure: SessionStructureSnapshot) {
   aura.rotation.x = -Math.PI / 2;
   aura.position.y = 0.04;
   group.add(aura);
+  return group;
+}
+
+export function createGroundAnchoredWall() {
+  const group = new THREE.Group();
+  const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        SOLO_WALL_HALF_WIDTH * 2,
+        3,
+        SOLO_WALL_HALF_DEPTH * 2
+      ),
+      new THREE.MeshStandardMaterial({
+        color: "#79e1ff",
+        emissive: "#7be4ff",
+        emissiveIntensity: 0.3,
+        metalness: 0.05,
+        roughness: 0.42
+      })
+    );
+  mesh.position.y = 1.5;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
   return group;
 }
 

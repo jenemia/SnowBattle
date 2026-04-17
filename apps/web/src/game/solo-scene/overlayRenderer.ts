@@ -92,6 +92,10 @@ export class SoloOverlayRenderer {
         buildType === "wall" ? 1.5 : 0.8,
         snapshot.hud.cursorZ
       );
+      this.buildPreview.rotation.y =
+        buildType === "wall"
+          ? getWallPreviewYaw(snapshot)
+          : 0;
       this.buildPreviewMaterial.color.set(
         snapshot.hud.buildPreviewValid ? "#7be4ff" : "#ff9f80"
       );
@@ -100,6 +104,7 @@ export class SoloOverlayRenderer {
       );
     } else {
       this.buildPreview.visible = false;
+      this.buildPreview.rotation.y = 0;
     }
 
     this.whiteoutRing.visible = snapshot.match.phase !== "standard";
@@ -108,6 +113,17 @@ export class SoloOverlayRenderer {
     this.bonfireGroup.visible = snapshot.hud.activeBonfire;
     this.bonfireLight.intensity = snapshot.hud.activeBonfire ? 4 : 0;
   }
+}
+
+export function getWallPreviewYaw(snapshot: SessionSnapshot) {
+  const deltaX = snapshot.localPlayer.x - snapshot.hud.cursorX;
+  const deltaZ = snapshot.localPlayer.z - snapshot.hud.cursorZ;
+
+  if (Math.hypot(deltaX, deltaZ) <= 0.001) {
+    return 0;
+  }
+
+  return Math.atan2(deltaX, deltaZ);
 }
 
 function createCursorMarker() {
