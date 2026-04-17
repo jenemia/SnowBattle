@@ -4,6 +4,21 @@ export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+export function circleIntersectsCircle(
+  x: number,
+  z: number,
+  radius: number,
+  circleX: number,
+  circleZ: number,
+  circleRadius: number
+) {
+  const dx = x - circleX;
+  const dz = z - circleZ;
+  const overlapDistance = radius + circleRadius;
+
+  return dx * dx + dz * dz <= overlapDistance * overlapDistance;
+}
+
 export function circleIntersectsWall(
   x: number,
   z: number,
@@ -38,6 +53,30 @@ export function segmentHitsWall(
     const z = startZ + (endZ - startZ) * t;
 
     if (circleIntersectsWall(x, z, 0.18, wallX, wallZ, wallRotationY)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function segmentHitsCircle(
+  startX: number,
+  startZ: number,
+  endX: number,
+  endZ: number,
+  circleX: number,
+  circleZ: number,
+  circleRadius: number
+) {
+  const steps = 8;
+
+  for (let step = 1; step < steps; step += 1) {
+    const t = step / steps;
+    const x = startX + (endX - startX) * t;
+    const z = startZ + (endZ - startZ) * t;
+
+    if (circleIntersectsCircle(x, z, 0.18, circleX, circleZ, circleRadius)) {
       return true;
     }
   }
@@ -84,6 +123,41 @@ export function resolveCircleOutsideWall(
     overlapped: true,
     x: world.x,
     z: world.z
+  };
+}
+
+export function resolveCircleOutsideCircle(
+  x: number,
+  z: number,
+  radius: number,
+  circleX: number,
+  circleZ: number,
+  circleRadius: number,
+  margin = 0
+) {
+  const deltaX = x - circleX;
+  const deltaZ = z - circleZ;
+  const distance = Math.hypot(deltaX, deltaZ);
+  const minDistance = radius + circleRadius + margin;
+
+  if (distance >= minDistance) {
+    return { overlapped: false, x, z };
+  }
+
+  if (distance <= 1e-6) {
+    return {
+      overlapped: true,
+      x: circleX + minDistance,
+      z: circleZ
+    };
+  }
+
+  const scale = minDistance / distance;
+
+  return {
+    overlapped: true,
+    x: circleX + deltaX * scale,
+    z: circleZ + deltaZ * scale
   };
 }
 

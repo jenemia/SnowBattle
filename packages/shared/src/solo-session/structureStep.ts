@@ -6,8 +6,14 @@ import {
   SOLO_WHITEOUT_STRUCTURE_DAMAGE_PER_SECOND
 } from "../constants.js";
 import type { BuildType, MatchPhase } from "../session.js";
+import { STATIC_ARENA_OBSTACLES } from "../staticObstacles.js";
 import { createStructureState, getBuildCost, getStructureMaxCount, isBuildPreviewValid } from "./buildRules.js";
-import { clamp, resolveCircleOutsideWall, segmentHitsWall } from "./geometry.js";
+import {
+  clamp,
+  resolveCircleOutsideWall,
+  segmentHitsCircle,
+  segmentHitsWall
+} from "./geometry.js";
 import { spawnTurretProjectile } from "./projectileStep.js";
 import type {
   PlayerRuntimeState,
@@ -117,6 +123,22 @@ function hasLineOfSight(
   structure: StructureRuntimeState,
   target: PlayerRuntimeState
 ) {
+  if (
+    STATIC_ARENA_OBSTACLES.some((obstacle) =>
+      segmentHitsCircle(
+        structure.x,
+        structure.z,
+        target.x,
+        target.z,
+        obstacle.x,
+        obstacle.z,
+        obstacle.blockingRadius
+      )
+    )
+  ) {
+    return false;
+  }
+
   return ![...runtime.structures.values()].some((candidate) => {
     if (candidate.type !== "wall") {
       return false;

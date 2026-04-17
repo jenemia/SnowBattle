@@ -12,8 +12,15 @@ import {
   SOLO_WHITEOUT_PLAYER_DAMAGE_PER_SECOND
 } from "../constants.js";
 import type { MatchPhase } from "../session.js";
-import { clamp, circleIntersectsWall } from "./geometry.js";
+import { STATIC_ARENA_OBSTACLES } from "../staticObstacles.js";
+import {
+  clamp,
+  circleIntersectsCircle,
+  circleIntersectsWall
+} from "./geometry.js";
 import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
+
+const PLAYER_COLLISION_RADIUS = 0.9;
 
 export function updatePlayers(
   runtime: SoloRuntimeState,
@@ -110,7 +117,7 @@ function resolveWallMovement(
       circleIntersectsWall(
         resolvedX,
         player.z,
-        0.9,
+        PLAYER_COLLISION_RADIUS,
         structure.x,
         structure.z,
         structure.rotationY ?? 0
@@ -132,10 +139,42 @@ function resolveWallMovement(
       circleIntersectsWall(
         resolvedX,
         resolvedZ,
-        0.9,
+        PLAYER_COLLISION_RADIUS,
         structure.x,
         structure.z,
         structure.rotationY ?? 0
+      )
+    ) {
+      resolvedZ = player.z;
+      break;
+    }
+  }
+
+  for (const obstacle of STATIC_ARENA_OBSTACLES) {
+    if (
+      circleIntersectsCircle(
+        resolvedX,
+        player.z,
+        PLAYER_COLLISION_RADIUS,
+        obstacle.x,
+        obstacle.z,
+        obstacle.blockingRadius
+      )
+    ) {
+      resolvedX = player.x;
+      break;
+    }
+  }
+
+  for (const obstacle of STATIC_ARENA_OBSTACLES) {
+    if (
+      circleIntersectsCircle(
+        resolvedX,
+        resolvedZ,
+        PLAYER_COLLISION_RADIUS,
+        obstacle.x,
+        obstacle.z,
+        obstacle.blockingRadius
       )
     ) {
       resolvedZ = player.z;

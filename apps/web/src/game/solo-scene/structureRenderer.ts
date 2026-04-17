@@ -2,24 +2,40 @@ import * as THREE from "three";
 
 import {
   SOLO_HEATER_BEACON_HP,
-  SOLO_HEATER_BEACON_RADIUS,
   SOLO_SNOWMAN_TURRET_HP,
-  SOLO_STRUCTURE_COLLISION_RADIUS,
-  SOLO_WALL_HALF_DEPTH,
-  SOLO_WALL_HALF_WIDTH,
   SOLO_WALL_HP,
   type BuildType,
   type SessionSnapshot,
   type SessionStructureSnapshot
 } from "@snowbattle/shared";
 
-const BUILDING_GROUND_CLEARANCE = 0.03;
-const TURRET_GROUND_CLEARANCE = 0.34;
-const WALL_CENTER_Y = 1.5 + BUILDING_GROUND_CLEARANCE;
-const TURRET_BODY_CENTER_Y = 0.8 + TURRET_GROUND_CLEARANCE;
-const TURRET_HEAD_CENTER_Y = 1.85 + TURRET_GROUND_CLEARANCE;
-const HEATER_BASE_CENTER_Y = 0.5 + BUILDING_GROUND_CLEARANCE;
-const HEATER_AURA_Y = 0.04 + BUILDING_GROUND_CLEARANCE;
+import {
+  createHolidayAssetFallback,
+  createHolidayAssetInstance,
+  fitHolidayAssetToGround,
+  type HolidayAssetKey
+} from "./holidayKitAssets";
+
+const STRUCTURE_MODEL_CONFIG: Record<
+  BuildType,
+  { assetKey: HolidayAssetKey; groundClearance: number; targetHeight: number }
+> = {
+  heater_beacon: {
+    assetKey: "lantern",
+    groundClearance: 0.03,
+    targetHeight: 1
+  },
+  snowman_turret: {
+    assetKey: "reindeer",
+    groundClearance: 0.34,
+    targetHeight: 2.3
+  },
+  wall: {
+    assetKey: "snow-bunker",
+    groundClearance: 0.03,
+    targetHeight: 3
+  }
+};
 
 export class SoloStructureRenderer {
   private readonly structureMeshes = new Map<string, THREE.Object3D>();
@@ -54,93 +70,31 @@ export class SoloStructureRenderer {
 }
 
 function createStructureMesh(structure: SessionStructureSnapshot) {
-  if (structure.type === "wall") {
-    return createGroundAnchoredWall();
-  }
-
-  if (structure.type === "snowman_turret") {
-    const group = new THREE.Group();
-    const body = new THREE.Mesh(
-      new THREE.SphereGeometry(0.8, 16, 16),
-      new THREE.MeshStandardMaterial({
-        color: "#f8fcff",
-        emissive: "#99e5ff",
-        emissiveIntensity: 0.32
-      })
-    );
-    body.position.y = TURRET_BODY_CENTER_Y;
-    body.castShadow = true;
-    body.receiveShadow = true;
-    group.add(body);
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.45, 12, 12),
-      new THREE.MeshStandardMaterial({ color: "#ffffff" })
-    );
-    head.position.y = TURRET_HEAD_CENTER_Y;
-    head.castShadow = true;
-    head.receiveShadow = true;
-    group.add(head);
-    return group;
-  }
-
-  const group = new THREE.Group();
-  const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      SOLO_STRUCTURE_COLLISION_RADIUS * 0.7,
-      SOLO_STRUCTURE_COLLISION_RADIUS * 1.05,
-      1,
-      12
-    ),
-    new THREE.MeshStandardMaterial({
-      color: "#ffcf73",
-      emissive: "#ff914f",
-      emissiveIntensity: 0.65
-    })
+  const container = new THREE.Group();
+  container.userData.structureType = structure.type;
+  const config = STRUCTURE_MODEL_CONFIG[structure.type];
+  const fallback = fitHolidayAssetToGround(
+    createHolidayAssetFallback(config.assetKey),
+    {
+      groundClearance: config.groundClearance,
+      targetHeight: config.targetHeight
+    }
   );
-  base.position.y = HEATER_BASE_CENTER_Y;
-  base.castShadow = true;
-  base.receiveShadow = true;
-  group.add(base);
-  const aura = new THREE.Mesh(
-    new THREE.RingGeometry(
-      SOLO_HEATER_BEACON_RADIUS - 0.18,
-      SOLO_HEATER_BEACON_RADIUS,
-      48
-    ),
-    new THREE.MeshBasicMaterial({
-      color: "#ffd884",
-      opacity: 0.55,
-      side: THREE.DoubleSide,
-      transparent: true
-    })
-  );
-  aura.rotation.x = -Math.PI / 2;
-  aura.position.y = HEATER_AURA_Y;
-  group.add(aura);
-  return group;
-}
+  container.add(fallback);
 
-export function createGroundAnchoredWall() {
-  const group = new THREE.Group();
-  const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(
-        SOLO_WALL_HALF_WIDTH * 2,
-        3,
-        SOLO_WALL_HALF_DEPTH * 2
-      ),
-      new THREE.MeshStandardMaterial({
-        color: "#79e1ff",
-        emissive: "#7be4ff",
-        emissiveIntensity: 0.3,
-        metalness: 0.05,
-        roughness: 0.42
-      })
-    );
-  mesh.position.y = WALL_CENTER_Y;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  group.add(mesh);
-  return group;
+  void createHolidayAssetInstance(config.assetKey, {
+    groundClearance: config.groundClearance,
+    targetHeight: config.targetHeight
+  }).then((model) => {
+    if (!container.parent && container.children.length === 0) {
+      return;
+    }
+
+    container.clear();
+    container.add(model);
+  });
+
+  return container;
 }
 
 function updateStructureVisual(
@@ -163,15 +117,11 @@ function updateStructureVisual(
     }
 
     if (structure.type === "wall") {
-      material.color.set("#4dc6ff").lerp(new THREE.Color("#79e1ff"), ratio);
+      material.color.set("#d6efff").lerp(new THREE.Color("#ffffff"), ratio);
     } else if (structure.type === "snowman_turret") {
-      material.color
-        .set("#d7f6ff")
-        .lerp(new THREE.Color("#ffffff"), ratio);
+      material.color.set("#c48a66").lerp(new THREE.Color("#f6e5d6"), ratio);
     } else {
-      material.color
-        .set("#ff9d5d")
-        .lerp(new THREE.Color("#ffcf73"), ratio);
+      material.color.set("#8b6a52").lerp(new THREE.Color("#ffd696"), ratio);
     }
 
     material.emissiveIntensity =

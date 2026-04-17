@@ -11,17 +11,20 @@ import {
   SOLO_SPAWN_EXCLUSION_RADIUS,
   SOLO_SPAWN_RANGE,
   SOLO_STRUCTURE_COLLISION_RADIUS,
+  SOLO_WALL_BLOCK_RADIUS,
   SOLO_WALL_COST,
   SOLO_WALL_DURATION_MS,
   SOLO_WALL_HP,
   SOLO_WALL_SPAWN_RANGE
 } from "../constants.js";
 import type { BuildType, MatchPhase } from "../session.js";
+import { STATIC_ARENA_OBSTACLES } from "../staticObstacles.js";
 import type {
   PlayerRuntimeState,
   SoloRuntimeState,
   StructureRuntimeState
 } from "./runtimeTypes.js";
+import { circleIntersectsCircle } from "./geometry.js";
 
 const HEATER_OR_TURRET_LIMIT = 1;
 
@@ -124,8 +127,30 @@ export function isBuildPreviewValid(
   return ![...runtime.structures.values()].some(
     (structure) =>
       Math.hypot(structure.x - player.aimX, structure.z - player.aimZ) <
-      SOLO_STRUCTURE_COLLISION_RADIUS * 2
-  );
+      getBuildCollisionRadius(buildType) + getStructureCollisionRadius(structure.type)
+  ) &&
+    !STATIC_ARENA_OBSTACLES.some((obstacle) =>
+      circleIntersectsCircle(
+        player.aimX,
+        player.aimZ,
+        getBuildCollisionRadius(buildType),
+        obstacle.x,
+        obstacle.z,
+        obstacle.blockingRadius
+      )
+    );
+}
+
+export function getBuildCollisionRadius(buildType: BuildType) {
+  return buildType === "wall"
+    ? SOLO_WALL_BLOCK_RADIUS
+    : SOLO_STRUCTURE_COLLISION_RADIUS;
+}
+
+function getStructureCollisionRadius(buildType: BuildType) {
+  return buildType === "wall"
+    ? SOLO_WALL_BLOCK_RADIUS
+    : SOLO_STRUCTURE_COLLISION_RADIUS;
 }
 
 export function createStructureState(

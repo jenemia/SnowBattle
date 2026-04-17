@@ -1,5 +1,13 @@
 import * as THREE from "three";
 
+import { STATIC_ARENA_OBSTACLES } from "@snowbattle/shared";
+
+import {
+  createHolidayAssetFallback,
+  createHolidayAssetInstance,
+  fitHolidayAssetToGround
+} from "./holidayKitAssets";
+
 export function buildSoloEnvironment(scene: THREE.Scene) {
   scene.fog = new THREE.FogExp2("#07111b", 0.026);
   scene.add(new THREE.AmbientLight("#c1efff", 0.95));
@@ -41,26 +49,35 @@ export function buildSoloEnvironment(scene: THREE.Scene) {
   (grid.material as THREE.Material).opacity = 0.26;
   scene.add(grid);
 
-  const markers = [
-    [-12, -9],
-    [10, -11],
-    [-8, 10],
-    [13, 8],
-    [0, -15]
-  ];
+  const obstacleRoot = new THREE.Group();
+  obstacleRoot.name = "holiday-static-obstacles";
+  scene.add(obstacleRoot);
 
-  for (const [x, z] of markers) {
-    const marker = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.7, 1.2, 1.5, 6),
-      new THREE.MeshStandardMaterial({
-        color: "#9fe9ff",
-        emissive: "#7be4ff",
-        emissiveIntensity: 0.22
-      })
+  for (const obstacle of STATIC_ARENA_OBSTACLES) {
+    const anchor = new THREE.Group();
+    anchor.name = obstacle.id;
+    anchor.position.set(obstacle.x, 0, obstacle.z);
+    anchor.rotation.y = obstacle.rotationY;
+    const fallback = fitHolidayAssetToGround(
+      createHolidayAssetFallback(obstacle.modelKey),
+      {
+        groundClearance: 0.03,
+        targetHeight: obstacle.visualHeight
+      }
     );
-    marker.position.set(x, 0.75, z);
-    marker.castShadow = true;
-    marker.receiveShadow = true;
-    scene.add(marker);
+    anchor.add(fallback);
+    obstacleRoot.add(anchor);
+
+    void createHolidayAssetInstance(obstacle.modelKey, {
+      groundClearance: 0.03,
+      targetHeight: obstacle.visualHeight
+    }).then((model) => {
+      if (!anchor.parent) {
+        return;
+      }
+
+      anchor.clear();
+      anchor.add(model);
+    });
   }
 }

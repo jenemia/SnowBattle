@@ -12,15 +12,17 @@ import {
   SOLO_SNOWBALL_RANGE,
   SOLO_STRUCTURE_COLLISION_RADIUS
 } from "../constants.js";
+import { STATIC_ARENA_OBSTACLES } from "../staticObstacles.js";
 import type {
   PlayerRuntimeState,
   ProjectileRuntimeState,
   SoloRuntimeState,
   StructureRuntimeState
 } from "./runtimeTypes.js";
-import { circleIntersectsWall } from "./geometry.js";
+import { circleIntersectsCircle, circleIntersectsWall } from "./geometry.js";
 
 const TURRET_PROJECTILE_SPEED = 10;
+const TURRET_PROJECTILE_SPAWN_DISTANCE = 1.9;
 
 export function trySpawnProjectile(runtime: SoloRuntimeState, player: PlayerRuntimeState) {
   if (player.fireCooldownRemaining > 0) {
@@ -80,8 +82,8 @@ export function spawnTurretProjectile(
     traveled: 0,
     vx: directionX * TURRET_PROJECTILE_SPEED,
     vz: directionZ * TURRET_PROJECTILE_SPEED,
-    x: structure.x + directionX * PROJECTILE_SPAWN_DISTANCE,
-    z: structure.z + directionZ * PROJECTILE_SPAWN_DISTANCE
+    x: structure.x + directionX * TURRET_PROJECTILE_SPAWN_DISTANCE,
+    z: structure.z + directionZ * TURRET_PROJECTILE_SPAWN_DISTANCE
   });
 
   return true;
@@ -100,6 +102,11 @@ export function updateProjectiles(runtime: SoloRuntimeState, deltaSeconds: numbe
       projectile.traveled >= getProjectileMaxRange(projectile) ||
       projectile.expiresAt <= runtime.elapsedMs
     ) {
+      runtime.projectiles.delete(projectile.id);
+      continue;
+    }
+
+    if (hitsStaticObstacle(projectile)) {
       runtime.projectiles.delete(projectile.id);
       continue;
     }
@@ -168,6 +175,21 @@ function findHitStructure(runtime: SoloRuntimeState, projectileX: number, projec
   });
 }
 
+function hitsStaticObstacle(projectile: ProjectileRuntimeState) {
+  const collisionRadius = getProjectileCollisionRadius(projectile);
+
+  return STATIC_ARENA_OBSTACLES.some((obstacle) =>
+    circleIntersectsCircle(
+      projectile.x,
+      projectile.z,
+      collisionRadius,
+      obstacle.x,
+      obstacle.z,
+      obstacle.blockingRadius
+    )
+  );
+}
+
 function getSlowPenalty(snowLoad: number) {
   return Math.min(0.35, (snowLoad / 20) * 0.07);
 }
@@ -176,4 +198,8 @@ function getProjectileMaxRange(projectile: ProjectileRuntimeState) {
   return projectile.sourceType === "snowman_turret"
     ? SOLO_SNOWMAN_TURRET_RANGE
     : SOLO_SNOWBALL_RANGE;
+}
+
+function getProjectileCollisionRadius(projectile: ProjectileRuntimeState) {
+  return projectile.sourceType === "snowman_turret" ? 0.42 : 0.28;
 }
