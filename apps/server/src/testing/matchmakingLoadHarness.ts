@@ -51,6 +51,7 @@ export async function runMatchmakingLoad({
       const room = await client.joinOrCreate("duel", {
         guestName: `Load-${index + 1}`
       });
+      room.reconnection.enabled = false;
 
       const state: MatchmakingLoadClientState = {
         detail: "joined room",

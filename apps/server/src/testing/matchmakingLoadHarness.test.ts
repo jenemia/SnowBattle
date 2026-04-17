@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   disposeMatchmakingLoad,
@@ -9,33 +9,18 @@ import {
 
 describe.sequential("matchmaking load harness", () => {
   const port = 2568;
-  const originalConsoleLog = console.log;
   let server:
     | Awaited<ReturnType<typeof startMatchmakingTestServer>>
     | null = null;
-  const consoleLogSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
-    const message = args.join(" ");
-
-    if (message.includes("[Colyseus reconnection]")) {
-      return;
-    }
-
-    originalConsoleLog(...args);
-  });
 
   beforeAll(async () => {
     server = await startMatchmakingTestServer(port);
   }, 30_000);
 
-  afterEach(() => {
-    consoleLogSpy.mockClear();
-  });
-
   afterAll(async () => {
     if (server) {
       await stopMatchmakingTestServer(server.serverProcess);
     }
-    consoleLogSpy.mockRestore();
   }, 15_000);
 
   it.each([

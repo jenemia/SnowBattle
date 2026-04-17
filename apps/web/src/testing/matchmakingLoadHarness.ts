@@ -54,6 +54,7 @@ export async function runBrowserMatchmakingLoad(
       const room = await client.joinOrCreate("duel", {
         guestName: `Browser-${index + 1}`
       });
+      room.reconnection.enabled = false;
       const state: BrowserMatchmakingLoadClientState = {
         detail: "joined room",
         index,
