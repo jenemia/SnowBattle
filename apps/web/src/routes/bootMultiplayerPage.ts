@@ -271,6 +271,8 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     throw new Error("Missing multiplayer UI nodes");
   }
 
+  debugPanel.style.display = "none";
+
   const ui = {
     bonfire,
     build,

@@ -70,6 +70,15 @@ export class SoloInputController {
 
   private readonly handleContextMenu = (event: MouseEvent) => {
     event.preventDefault();
+
+    if (!this.connected || this.getSelectedBuild() === null) {
+      return;
+    }
+
+    this.dispatchCommand({
+      inputSeq: this.claimInputSeq(),
+      type: "build:cancel"
+    });
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {
@@ -220,6 +229,10 @@ export class SoloInputController {
       this.provider.getLatestSnapshot()?.localPlayer.slot ??
       "A"
     );
+  }
+
+  private getSelectedBuild() {
+    return this.provider.getLatestSnapshot()?.localPlayer.selectedBuild ?? null;
   }
 }
 

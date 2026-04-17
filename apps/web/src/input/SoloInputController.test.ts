@@ -177,6 +177,37 @@ describe("SoloInputController", () => {
     expect(update?.payload.moveX).toBeCloseTo(-Math.SQRT1_2, 5);
     expect(update?.payload.moveY).toBeCloseTo(Math.SQRT1_2, 5);
   });
+
+  it("cancels build mode on right click when a build is selected", () => {
+    const snapshot = createSnapshot("A");
+    snapshot.localPlayer.selectedBuild = "wall";
+    const { controller, provider } = createController(undefined, snapshot);
+
+    controller.connect();
+    controller.handleContextMenu({
+      preventDefault: vi.fn()
+    } as unknown as MouseEvent);
+    controller.disconnect();
+
+    expect(provider.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "build:cancel" })
+    );
+  });
+
+  it("does not send build cancel on right click outside build mode", () => {
+    const snapshot = createSnapshot("A");
+    const { controller, provider } = createController(undefined, snapshot);
+
+    controller.connect();
+    controller.handleContextMenu({
+      preventDefault: vi.fn()
+    } as unknown as MouseEvent);
+    controller.disconnect();
+
+    expect(provider.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "build:cancel" })
+    );
+  });
 });
 
 type ControllerHarness = ReturnType<typeof createController>;
@@ -217,6 +248,7 @@ function createController(
   ) as unknown as {
     connect: () => void;
     disconnect: () => void;
+    handleContextMenu: (event: MouseEvent) => void;
     handleKeyDown: (event: KeyboardEvent) => void;
     handleKeyUp: (event: KeyboardEvent) => void;
     handlePointerDown: (event: PointerEvent) => void;
