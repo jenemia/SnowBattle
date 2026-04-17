@@ -35,6 +35,7 @@ export function bootSoloPage(root: HTMLDivElement) {
           snowLoad: ui.snowLoad,
           status: ui.status,
           structures: ui.structures,
+          timerBadge: ui.timerBadge,
           time: ui.time
         },
         hud,

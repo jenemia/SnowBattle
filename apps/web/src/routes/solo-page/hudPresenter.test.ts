@@ -33,6 +33,7 @@ type MockSessionHudElements = SessionHudElements & {
   snowLoad: MockTextElement;
   status: MockTextElement;
   structures: MockTextElement;
+  timerBadge: MockTextElement;
   time: MockTextElement;
 };
 type MockSkillStripElements = DuelSkillStripElements & {
@@ -55,9 +56,24 @@ describe("presentSoloHud", () => {
     expect(duelHud.statusText).toBe(soloHud.statusText);
     expect(duelHud.modeText).toBe(soloHud.modeText);
     expect(duelHud.timeText).toBe(soloHud.timeText);
+    expect(soloHud.timeText).toBe("02:00");
+    expect(soloHud.timerBadgeText).toBe("02:00");
     expect(duelHud.cooldownText).toBe(soloHud.cooldownText);
     expect(duelHud.actionText).toBe("Requeue");
     expect(soloHud.actionText).toBe("Restart round");
+  });
+
+  it("formats the match timer as mm:ss for both the panel and top-right badge", () => {
+    const hud = presentSoloHud(
+      createSnapshot({
+        match: {
+          timeRemainingMs: 89_100
+        }
+      })
+    );
+
+    expect(hud.timeText).toBe("01:30");
+    expect(hud.timerBadgeText).toBe("01:30");
   });
 
   it("formats resolved result state for solo and duel surfaces", () => {
@@ -113,17 +129,20 @@ describe("presentSoloHud", () => {
     const hud = presentDuelHud(createSnapshot());
     const updatedHud = {
       ...hud,
-      timeText: "179.9s"
+      timeText: "01:59",
+      timerBadgeText: "01:59"
     };
 
     renderSessionHud(elements, hud);
     const baselineTimeWrites = elements.time.setCount;
+    const baselineTimerBadgeWrites = elements.timerBadge.setCount;
     const baselineHpWrites = elements.hp.setCount;
 
     renderSessionHud(elements, hud, hud);
     renderSessionHud(elements, updatedHud, hud);
 
     expect(elements.time.setCount).toBe(baselineTimeWrites + 1);
+    expect(elements.timerBadge.setCount).toBe(baselineTimerBadgeWrites + 1);
     expect(elements.hp.setCount).toBe(baselineHpWrites);
   });
 
@@ -191,7 +210,7 @@ function createSnapshot(overrides?: SnapshotOverrides): SessionSnapshot {
       countdownRemainingMs: 0,
       lifecycle: "in_match",
       phase: "standard",
-      timeRemainingMs: 180_000,
+      timeRemainingMs: 120_000,
       whiteoutRadius: 22,
       ...match
     },
@@ -254,6 +273,7 @@ function createSessionHudElements() {
     snowLoad: createMockTextElement(),
     status: createMockTextElement(),
     structures: createMockTextElement(),
+    timerBadge: createMockTextElement(),
     time: createMockTextElement()
   } as unknown as MockSessionHudElements;
 }
