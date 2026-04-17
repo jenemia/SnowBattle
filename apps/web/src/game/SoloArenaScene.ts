@@ -20,6 +20,7 @@ export class SoloArenaScene {
   private readonly projectileRenderer: SoloProjectileRenderer;
   private readonly structureRenderer: SoloStructureRenderer;
   private readonly overlayRenderer: SoloOverlayRenderer;
+  private readonly resizeObserver: ResizeObserver | null;
   private latestSnapshot: SessionSnapshot | null = null;
   private running = false;
 
@@ -35,8 +36,20 @@ export class SoloArenaScene {
     this.structureRenderer = new SoloStructureRenderer(this.scene);
     this.overlayRenderer = new SoloOverlayRenderer(this.scene);
 
+    this.resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            this.handleResize();
+          });
+    this.resizeObserver?.observe(this.mount);
+    this.resizeObserver?.observe(this.renderer.domElement);
+
     this.handleResize();
     window.addEventListener("resize", this.handleResize);
+    window.addEventListener("scroll", this.handleViewportBoundsChange, true);
+    window.visualViewport?.addEventListener("resize", this.handleViewportBoundsChange);
+    window.visualViewport?.addEventListener("scroll", this.handleViewportBoundsChange);
   }
 
   start() {
@@ -53,6 +66,10 @@ export class SoloArenaScene {
 
   dispose() {
     window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener("scroll", this.handleViewportBoundsChange, true);
+    window.visualViewport?.removeEventListener("resize", this.handleViewportBoundsChange);
+    window.visualViewport?.removeEventListener("scroll", this.handleViewportBoundsChange);
+    this.resizeObserver?.disconnect();
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
     this.mount.removeChild(this.renderer.domElement);
@@ -67,11 +84,7 @@ export class SoloArenaScene {
   }
 
   screenPointToWorld(clientX: number, clientY: number) {
-    return this.cameraController.screenPointToWorld(
-      this.renderer.domElement,
-      clientX,
-      clientY
-    );
+    return this.cameraController.screenPointToWorld(clientX, clientY);
   }
 
   private renderFrame() {
@@ -86,5 +99,10 @@ export class SoloArenaScene {
 
     this.cameraController.resize(width, height);
     this.renderer.setSize(width, height, false);
+    this.handleViewportBoundsChange();
+  };
+
+  private readonly handleViewportBoundsChange = () => {
+    this.cameraController.setViewportBounds(this.renderer.domElement.getBoundingClientRect());
   };
 }

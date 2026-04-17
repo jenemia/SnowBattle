@@ -2,6 +2,7 @@ import type { Client } from "colyseus";
 import { Room } from "colyseus";
 import type {
   CountdownMessage,
+  MatchLifecycle,
   MatchFoundMessage,
   QueueStatusMessage,
   RequeuePromptMessage,
@@ -10,6 +11,11 @@ import type {
 import { parseClientMessage } from "@snowbattle/shared";
 
 import { DuelMatchController } from "../core/DuelMatchController.js";
+import {
+  DuelRoomMessageCache,
+  getStateDispatchMode,
+  quantizeCountdownRemainingMs
+} from "./duelRoomTransport.js";
 import { queueRegistry } from "../services/QueueRegistry.js";
 
 interface DuelJoinOptions {
@@ -19,8 +25,9 @@ interface DuelJoinOptions {
 export class DuelRoom extends Room {
   maxClients = 2;
   private controller!: DuelMatchController;
-  private lastLifecycle = "waiting";
+  private lastLifecycle: MatchLifecycle = "waiting";
   private lastCountdownValue = Number.NaN;
+  private readonly messageCache = new DuelRoomMessageCache();
   private resultBroadcastAt = 0;
 
   onCreate() {
@@ -37,7 +44,6 @@ export class DuelRoom extends Room {
 
       this.controller.updateGuestName(client.sessionId, parsed.data.guestName);
       this.sendQueueStatus(client);
-      this.pushState(client);
     });
 
     this.onMessage("player:ready", (client, payload) => {
@@ -84,10 +90,11 @@ export class DuelRoom extends Room {
 
     this.setSimulationInterval((deltaTime) => {
       const now = Date.now();
+      const previousLifecycle = this.lastLifecycle;
       this.controller.tick(deltaTime, now);
       this.syncQueueMetadata();
-      this.broadcastLifecycleMessages(now);
-      this.pushState();
+      this.broadcastLifecycleMessages(now, previousLifecycle);
+      this.pushState(getStateDispatchMode(this.controller.lifecycle, previousLifecycle));
     }, 1000 / 20);
   }
 
@@ -98,11 +105,10 @@ export class DuelRoom extends Room {
     });
 
     this.syncQueueMetadata();
-    this.pushState();
 
     if (this.clients.length === 1) {
       this.unlock();
-      this.sendQueueStatus(client);
+      this.sendQueueStatus(client, true);
       return;
     }
 
@@ -136,6 +142,8 @@ export class DuelRoom extends Room {
   }
 
   onLeave(client: Client) {
+    this.messageCache.clearClient(client.sessionId);
+
     const { remainingPlayers, result, shouldResetToWaiting } =
       this.controller.removePlayer(client.sessionId, "forfeit");
 
@@ -155,12 +163,12 @@ export class DuelRoom extends Room {
         message: "Opponent left. Holding your spot while we wait for the next rider."
       };
 
-      this.broadcast("server:requeue", prompt);
+      this.broadcastIfChanged("server:requeue", prompt, true);
     }
 
     if (result) {
       this.lock();
-      this.broadcast("server:result", result);
+      this.broadcastIfChanged("server:result", result, true);
     }
   }
 
@@ -168,7 +176,7 @@ export class DuelRoom extends Room {
     queueRegistry.removeRoom(this.roomId);
   }
 
-  private sendQueueStatus(client: Client) {
+  private sendQueueStatus(client: Client, force = false) {
     const message: QueueStatusMessage = {
       status: "queued",
       position: queueRegistry.getPosition(this.roomId),
@@ -176,7 +184,7 @@ export class DuelRoom extends Room {
       roomId: this.roomId
     };
 
-    client.send("server:queue_status", message);
+    this.sendIfChanged(client, "server:queue_status", message, force);
   }
 
   private syncQueueMetadata() {
@@ -186,18 +194,26 @@ export class DuelRoom extends Room {
     queueRegistry.updateRoom(this.roomId, waitingPlayers);
   }
 
-  private broadcastLifecycleMessages(now: number) {
+  private broadcastLifecycleMessages(now: number, previousLifecycle: MatchLifecycle) {
+    if (previousLifecycle !== this.controller.lifecycle) {
+      this.resetLifecycleMessageCache(this.controller.lifecycle);
+    }
+
     if (this.controller.lifecycle === "countdown") {
-      const remainingMs = this.controller.getCountdownRemaining(now);
+      const remainingMs = quantizeCountdownRemainingMs(
+        this.controller.getCountdownRemaining(now)
+      );
 
       if (remainingMs !== this.lastCountdownValue) {
-        this.broadcast("server:countdown", {
+        this.broadcastIfChanged("server:countdown", {
           status: "countdown",
           roomId: this.roomId,
           remainingMs
         } satisfies CountdownMessage);
         this.lastCountdownValue = remainingMs;
       }
+    } else {
+      this.lastCountdownValue = Number.NaN;
     }
 
     if (
@@ -205,13 +221,13 @@ export class DuelRoom extends Room {
       this.resultBroadcastAt === 0 &&
       this.controller.getMatchResult()
     ) {
-      this.broadcast("server:result", this.controller.getMatchResult()!);
-      this.broadcast("server:requeue", {
+      this.broadcastIfChanged("server:result", this.controller.getMatchResult()!, true);
+      this.broadcastIfChanged("server:requeue", {
         status: "requeue",
         roomId: this.roomId,
         available: true,
         message: "Round complete. Leave the room to instantly queue again."
-      } satisfies RequeuePromptMessage);
+      } satisfies RequeuePromptMessage, true);
       this.resultBroadcastAt = now;
     }
 
@@ -219,25 +235,33 @@ export class DuelRoom extends Room {
       this.resultBroadcastAt = 0;
     }
 
-    if (this.lastLifecycle !== this.controller.lifecycle) {
+    if (previousLifecycle !== this.controller.lifecycle) {
       if (this.controller.lifecycle === "waiting" && this.clients.length === 1) {
-        this.sendQueueStatus(this.clients[0]);
+        this.sendQueueStatus(this.clients[0], true);
       }
 
       this.lastLifecycle = this.controller.lifecycle;
     }
   }
 
-  private pushState(target?: Client) {
+  private pushState(mode: ReturnType<typeof getStateDispatchMode>, target?: Client) {
+    if (mode === "idle") {
+      return;
+    }
+
+    const force = mode === "transition";
+
     if (target) {
       const snapshot = this.controller.getSnapshotFor(target.sessionId);
 
       if (snapshot) {
-        target.send("server:state", {
+        this.sendIfChanged(target, "server:state", {
           status: "state",
           roomId: this.roomId,
           snapshot
-        } satisfies StateSnapshotMessage);
+        } satisfies StateSnapshotMessage, force);
+      } else {
+        this.messageCache.delete("server:state", target.sessionId);
       }
       return;
     }
@@ -246,14 +270,45 @@ export class DuelRoom extends Room {
       const snapshot = this.controller.getSnapshotFor(client.sessionId);
 
       if (!snapshot) {
+        this.messageCache.delete("server:state", client.sessionId);
         continue;
       }
 
-      client.send("server:state", {
+      this.sendIfChanged(client, "server:state", {
         status: "state",
         roomId: this.roomId,
         snapshot
-      } satisfies StateSnapshotMessage);
+      } satisfies StateSnapshotMessage, force);
     }
+  }
+
+  private broadcastIfChanged<TPayload>(channel: string, payload: TPayload, force = false) {
+    for (const client of this.clients) {
+      this.sendIfChanged(client, channel, payload, force);
+    }
+  }
+
+  private resetLifecycleMessageCache(nextLifecycle: MatchLifecycle) {
+    this.messageCache.clearChannel("server:countdown");
+    this.messageCache.clearChannel("server:queue_status");
+    this.messageCache.clearChannel("server:requeue");
+    this.messageCache.clearChannel("server:result");
+
+    if (nextLifecycle !== "in_match") {
+      this.messageCache.clearChannel("server:state");
+    }
+  }
+
+  private sendIfChanged<TPayload>(
+    client: Client,
+    channel: string,
+    payload: TPayload,
+    force = false
+  ) {
+    if (!this.messageCache.shouldSend(channel, client.sessionId, payload, force)) {
+      return;
+    }
+
+    client.send(channel, payload);
   }
 }

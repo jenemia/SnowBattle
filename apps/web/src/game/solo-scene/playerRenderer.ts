@@ -4,6 +4,21 @@ import type { SessionSnapshot } from "@snowbattle/shared";
 
 import type { RunnerParts } from "./types";
 
+const BODY_SNOW_TINT = new THREE.Color("#edf8ff");
+const HEAD_SNOW_TINT = new THREE.Color("#ffffff");
+const PLAYER_PALETTE = {
+  A: {
+    body: new THREE.Color("#72df49"),
+    emissive: new THREE.Color("#67d640"),
+    head: new THREE.Color("#7cea4d")
+  },
+  B: {
+    body: new THREE.Color("#ff90d5"),
+    emissive: new THREE.Color("#a84cc8"),
+    head: new THREE.Color("#ffc3ef")
+  }
+} as const;
+
 export class SoloPlayerRenderer {
   private readonly playerMeshes = new Map<string, RunnerParts>();
 
@@ -23,12 +38,12 @@ export class SoloPlayerRenderer {
       }
 
       const snowBlend = player.snowLoad / 100;
+      const palette = PLAYER_PALETTE[player.slot];
       const bodyMaterial = runner.body.material as THREE.MeshStandardMaterial;
       const headMaterial = runner.head.material as THREE.MeshStandardMaterial;
-      bodyMaterial.color.set(player.slot === "A" ? "#72df49" : "#ff90d5");
-      bodyMaterial.color.lerp(new THREE.Color("#edf8ff"), snowBlend * 0.7);
-      bodyMaterial.emissive.set(player.slot === "A" ? "#67d640" : "#a84cc8");
-      headMaterial.color.set("#7cea4d").lerp(new THREE.Color("#ffffff"), snowBlend * 0.8);
+      bodyMaterial.color.copy(palette.body).lerp(BODY_SNOW_TINT, snowBlend * 0.7);
+      bodyMaterial.emissive.copy(palette.emissive);
+      headMaterial.color.copy(palette.head).lerp(HEAD_SNOW_TINT, snowBlend * 0.8);
       runner.snowCap.visible = snowBlend > 0.05;
       runner.snowCap.scale.setScalar(0.65 + snowBlend * 0.9);
       runner.snowCap.position.y = 3.95 + snowBlend * 0.2;

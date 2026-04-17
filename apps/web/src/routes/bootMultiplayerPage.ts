@@ -331,7 +331,11 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
         return ui.guestNameInput.value.trim() || storedName;
       })
     : createPreviewProvider();
+  let lastHud: ReturnType<typeof presentDuelHud> | null = null;
+  let lastPlayerState: RenderedPlayers | null = null;
+  let lastSkillStrip: ReturnType<typeof presentDuelSkillStrip> | null = null;
   let latestSnapshot: SessionSnapshot | null = null;
+  let latestSurfaceState: ReturnType<typeof getMultiplayerUiState> | null = null;
 
   syncCombatSurfaceState();
 
@@ -339,6 +343,8 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
     autoConnect: false,
     onSnapshot: (snapshot) => {
       latestSnapshot = snapshot;
+      const hud = presentDuelHud(snapshot);
+      const skillStrip = presentDuelSkillStrip(snapshot);
       renderSessionHud(
         {
           actionButton: ui.requeueButton,
@@ -361,8 +367,10 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
           structures: ui.structures,
           time: ui.time
         },
-        presentDuelHud(snapshot)
+        hud,
+        lastHud
       );
+      lastHud = hud;
       renderDuelSkillStrip(
         {
           cooldown: ui.prodCooldown,
@@ -370,10 +378,19 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
           snowmanTurret: ui.prodTurret,
           wall: ui.prodWall
         },
-        presentDuelSkillStrip(snapshot)
+        skillStrip,
+        lastSkillStrip
       );
-      ui.lifecycle.textContent = snapshot.match.lifecycle;
-      renderPlayers(snapshot, ui.playerAName, ui.playerAState, ui.playerBName, ui.playerBState);
+      lastSkillStrip = skillStrip;
+      setTextIfChanged(ui.lifecycle, ui.lifecycle.textContent, snapshot.match.lifecycle);
+      lastPlayerState = renderPlayers(
+        snapshot,
+        ui.playerAName,
+        ui.playerAState,
+        ui.playerBName,
+        ui.playerBState,
+        lastPlayerState
+      );
       syncCombatSurfaceState();
     },
     provider,
@@ -442,11 +459,29 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
       lifecycle: latestSnapshot?.match.lifecycle ?? null
     });
 
+    if (
+      latestSurfaceState &&
+      latestSurfaceState.showHero === surfaceState.showHero &&
+      latestSurfaceState.showQueuePanel === surfaceState.showQueuePanel &&
+      latestSurfaceState.showDebugPanel === surfaceState.showDebugPanel &&
+      latestSurfaceState.showProdSkillStrip === surfaceState.showProdSkillStrip
+    ) {
+      return;
+    }
+
     ui.hero.hidden = !surfaceState.showHero;
     ui.queuePanel.hidden = !surfaceState.showQueuePanel;
     ui.debugPanel.hidden = !surfaceState.showDebugPanel;
     ui.prodSkillStrip.hidden = !surfaceState.showProdSkillStrip;
+    latestSurfaceState = surfaceState;
   }
+}
+
+interface RenderedPlayers {
+  localName: string;
+  localState: string;
+  opponentName: string;
+  opponentState: string;
 }
 
 function renderPlayers(
@@ -454,12 +489,22 @@ function renderPlayers(
   localName: HTMLElement,
   localState: HTMLElement,
   opponentName: HTMLElement,
-  opponentState: HTMLElement
+  opponentState: HTMLElement,
+  previous: RenderedPlayers | null = null
 ) {
-  localName.textContent = snapshot.localPlayer.guestName;
-  localState.textContent = `${snapshot.localPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.localPlayer.x.toFixed(1)}`;
-  opponentName.textContent = snapshot.opponentPlayer.guestName;
-  opponentState.textContent = `${snapshot.opponentPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.opponentPlayer.x.toFixed(1)}`;
+  const nextState = {
+    localName: snapshot.localPlayer.guestName,
+    localState: `${snapshot.localPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.localPlayer.x.toFixed(1)}`,
+    opponentName: snapshot.opponentPlayer.guestName,
+    opponentState: `${snapshot.opponentPlayer.ready ? "Ready" : "Syncing"} · x ${snapshot.opponentPlayer.x.toFixed(1)}`
+  };
+
+  setTextIfChanged(localName, previous?.localName, nextState.localName);
+  setTextIfChanged(localState, previous?.localState, nextState.localState);
+  setTextIfChanged(opponentName, previous?.opponentName, nextState.opponentName);
+  setTextIfChanged(opponentState, previous?.opponentState, nextState.opponentState);
+
+  return nextState;
 }
 
 function handleProviderEvent(
@@ -530,6 +575,16 @@ function handleProviderEvent(
   if (event.type === "requeue") {
     ui.requeueButton.disabled = !event.available;
     ui.readout.textContent = event.message;
+  }
+}
+
+function setTextIfChanged(
+  element: Pick<HTMLElement, "textContent">,
+  previous: string | null | undefined,
+  next: string
+) {
+  if (previous !== next) {
+    element.textContent = next;
   }
 }
 

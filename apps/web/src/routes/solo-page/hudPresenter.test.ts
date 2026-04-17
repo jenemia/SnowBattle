@@ -3,10 +3,44 @@ import { describe, expect, it } from "vitest";
 import type { SessionSnapshot } from "@snowbattle/shared";
 
 import {
+  type DuelSkillStripElements,
+  type SessionHudElements,
   presentDuelHud,
   presentDuelSkillStrip,
-  presentSoloHud
+  presentSoloHud,
+  renderDuelSkillStrip,
+  renderSessionHud
 } from "./hudPresenter";
+
+type MockTextElement = HTMLElement & { setCount: number };
+type MockButtonElement = HTMLButtonElement & { setCount: number };
+type MockSessionHudElements = SessionHudElements & {
+  actionButton: MockButtonElement;
+  bonfire: MockTextElement;
+  build: MockTextElement;
+  cooldown: MockTextElement;
+  cursor: MockTextElement;
+  hp: MockTextElement;
+  mode: MockTextElement;
+  opponentHp: MockTextElement;
+  packedSnow: MockTextElement;
+  phase: MockTextElement;
+  position: MockTextElement;
+  preview: MockTextElement;
+  projectiles: MockTextElement;
+  readout: MockTextElement;
+  result: MockTextElement;
+  snowLoad: MockTextElement;
+  status: MockTextElement;
+  structures: MockTextElement;
+  time: MockTextElement;
+};
+type MockSkillStripElements = DuelSkillStripElements & {
+  cooldown: MockTextElement;
+  heaterBeacon: MockTextElement;
+  snowmanTurret: MockTextElement;
+  wall: MockTextElement;
+};
 
 describe("presentSoloHud", () => {
   it("shares combat telemetry across solo and duel while keeping action copy separate", () => {
@@ -72,6 +106,44 @@ describe("presentSoloHud", () => {
     expect(strip.wallText).toBe("Wall 1");
     expect(strip.snowmanTurretText).toBe("Turret 0");
     expect(strip.heaterBeaconText).toBe("Heater 1");
+  });
+
+  it("only writes changed HUD fields when a previous view model is provided", () => {
+    const elements = createSessionHudElements();
+    const hud = presentDuelHud(createSnapshot());
+    const updatedHud = {
+      ...hud,
+      timeText: "179.9s"
+    };
+
+    renderSessionHud(elements, hud);
+    const baselineTimeWrites = elements.time.setCount;
+    const baselineHpWrites = elements.hp.setCount;
+
+    renderSessionHud(elements, hud, hud);
+    renderSessionHud(elements, updatedHud, hud);
+
+    expect(elements.time.setCount).toBe(baselineTimeWrites + 1);
+    expect(elements.hp.setCount).toBe(baselineHpWrites);
+  });
+
+  it("only writes changed skill strip fields when a previous view model is provided", () => {
+    const elements = createSkillStripElements();
+    const strip = presentDuelSkillStrip(createSnapshot());
+    const updatedStrip = {
+      ...strip,
+      cooldownText: "0.25s"
+    };
+
+    renderDuelSkillStrip(elements, strip);
+    const baselineCooldownWrites = elements.cooldown.setCount;
+    const baselineWallWrites = elements.wall.setCount;
+
+    renderDuelSkillStrip(elements, strip, strip);
+    renderDuelSkillStrip(elements, updatedStrip, strip);
+
+    expect(elements.cooldown.setCount).toBe(baselineCooldownWrites + 1);
+    expect(elements.wall.setCount).toBe(baselineWallWrites);
   });
 });
 
@@ -160,4 +232,66 @@ function createStructure(
     x: 0,
     z: 0
   };
+}
+
+function createSessionHudElements() {
+  return {
+    actionButton: createMockButtonElement(),
+    bonfire: createMockTextElement(),
+    build: createMockTextElement(),
+    cooldown: createMockTextElement(),
+    cursor: createMockTextElement(),
+    hp: createMockTextElement(),
+    mode: createMockTextElement(),
+    opponentHp: createMockTextElement(),
+    packedSnow: createMockTextElement(),
+    phase: createMockTextElement(),
+    position: createMockTextElement(),
+    preview: createMockTextElement(),
+    projectiles: createMockTextElement(),
+    readout: createMockTextElement(),
+    result: createMockTextElement(),
+    snowLoad: createMockTextElement(),
+    status: createMockTextElement(),
+    structures: createMockTextElement(),
+    time: createMockTextElement()
+  } as unknown as MockSessionHudElements;
+}
+
+function createSkillStripElements() {
+  return {
+    cooldown: createMockTextElement(),
+    heaterBeacon: createMockTextElement(),
+    snowmanTurret: createMockTextElement(),
+    wall: createMockTextElement()
+  } as unknown as MockSkillStripElements;
+}
+
+function createMockButtonElement() {
+  const element = createMockTextElement() as MockButtonElement;
+
+  element.disabled = false;
+  return element;
+}
+
+function createMockTextElement() {
+  let value: string | null = null;
+  const target = {
+    setCount: 0
+  } as {
+    setCount: number;
+    textContent: string | null;
+  };
+
+  Object.defineProperty(target, "textContent", {
+    get() {
+      return value;
+    },
+    set(next: string | null) {
+      value = next;
+      target.setCount += 1;
+    }
+  });
+
+  return target as MockTextElement;
 }

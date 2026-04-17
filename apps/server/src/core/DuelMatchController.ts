@@ -25,8 +25,12 @@ interface AddPlayerOptions {
 export class DuelMatchController {
   private countdownEndsAt: number | null = null;
   private engine: SoloRulesEngine | null = null;
+  private orderedPlayersCache: PlayerState[] | null = null;
   private readonly players = new Map<string, PlayerState>();
   private result: MatchResultMessage | null = null;
+  private readonly snapshotCache = new Map<string, SessionSnapshot>();
+  private snapshotCacheVersion = -1;
+  private stateVersion = 0;
 
   lifecycle: MatchLifecycle = "waiting";
 
@@ -49,6 +53,7 @@ export class DuelMatchController {
 
     this.players.set(sessionId, player);
     this.result = null;
+    this.invalidateState({ playersChanged: true });
     return player;
   }
 
@@ -57,14 +62,16 @@ export class DuelMatchController {
 
     if (player && guestName?.trim()) {
       player.guestName = guestName.trim();
+      this.invalidateState();
     }
   }
 
   setReady(sessionId: string, ready: boolean) {
     const player = this.players.get(sessionId);
 
-    if (player) {
+    if (player && player.ready !== ready) {
       player.ready = ready;
+      this.invalidateState();
     }
   }
 
@@ -80,6 +87,7 @@ export class DuelMatchController {
     }
 
     this.engine.receiveCommand(player.slot, command);
+    this.invalidateState();
   }
 
   removePlayer(
@@ -98,6 +106,7 @@ export class DuelMatchController {
     }
 
     this.players.delete(sessionId);
+    this.invalidateState({ playersChanged: true });
 
     if (this.lifecycle === "in_match") {
       const remaining = this.getPlayers()[0] ?? null;
@@ -138,6 +147,7 @@ export class DuelMatchController {
       this.lifecycle = "countdown";
       this.countdownEndsAt = now + COUNTDOWN_MS;
       this.result = null;
+      this.invalidateState();
       return true;
     }
 
@@ -160,6 +170,7 @@ export class DuelMatchController {
           guestNames: this.buildGuestNameMap(),
           localSlot: "A"
         });
+        this.invalidateState();
       }
 
       return;
@@ -170,6 +181,7 @@ export class DuelMatchController {
     }
 
     this.engine.tick(deltaMs);
+    this.invalidateState();
 
     const result = this.engine.getResult();
     if (!result) {
@@ -198,6 +210,7 @@ export class DuelMatchController {
       reason,
       requeueAvailable: true
     };
+    this.invalidateState();
   }
 
   resetToWaiting() {
@@ -209,6 +222,8 @@ export class DuelMatchController {
     for (const player of this.players.values()) {
       player.ready = false;
     }
+
+    this.invalidateState();
   }
 
   getCountdownRemaining(now: number) {
@@ -224,38 +239,33 @@ export class DuelMatchController {
   }
 
   getPlayers() {
-    return [...this.players.values()].sort((left, right) =>
-      left.slot.localeCompare(right.slot)
-    );
+    return [...this.getOrderedPlayers()];
   }
 
   getSnapshotFor(sessionId: string): SessionSnapshot | null {
-    if (!this.engine) {
-      return null;
-    }
-
     const player = this.players.get(sessionId);
 
-    if (!player) {
+    if (!player || !this.engine) {
       return null;
     }
 
-    return this.applyPlayerMetadata(this.engine.getSnapshotFor(player.slot));
+    this.refreshSnapshotCache();
+
+    return this.snapshotCache.get(sessionId) ?? null;
   }
 
   getOpponentGuestName(slot: SlotId) {
     return (
-      this.getPlayers().find((player) => player.slot !== slot)?.guestName ?? "Waiting..."
+      this.getOrderedPlayers().find((player) => player.slot !== slot)?.guestName ?? "Waiting..."
     );
   }
 
-  private applyPlayerMetadata(snapshot: SessionSnapshot): SessionSnapshot {
-    const localMeta = this.getPlayers().find(
-      (player) => player.slot === snapshot.localPlayer.slot
-    );
-    const opponentMeta = this.getPlayers().find(
-      (player) => player.slot === snapshot.opponentPlayer.slot
-    );
+  private applyPlayerMetadata(
+    snapshot: SessionSnapshot,
+    playersBySlot: Record<SlotId, PlayerState | null>
+  ): SessionSnapshot {
+    const localMeta = playersBySlot[snapshot.localPlayer.slot];
+    const opponentMeta = playersBySlot[snapshot.opponentPlayer.slot];
 
     return {
       ...snapshot,
@@ -290,9 +300,11 @@ export class DuelMatchController {
   }
 
   private buildGuestNameMap(): Record<SlotId, string> {
+    const playersBySlot = this.getPlayersBySlot();
+
     return {
-      A: this.getPlayers().find((player) => player.slot === "A")?.guestName ?? "Rider-A",
-      B: this.getPlayers().find((player) => player.slot === "B")?.guestName ?? "Rider-B"
+      A: playersBySlot.A?.guestName ?? "Rider-A",
+      B: playersBySlot.B?.guestName ?? "Rider-B"
     };
   }
 
@@ -308,5 +320,56 @@ export class DuelMatchController {
     }
 
     return null;
+  }
+
+  private getOrderedPlayers() {
+    if (!this.orderedPlayersCache) {
+      this.orderedPlayersCache = [...this.players.values()].sort((left, right) =>
+        left.slot.localeCompare(right.slot)
+      );
+    }
+
+    return this.orderedPlayersCache;
+  }
+
+  private getPlayersBySlot(): Record<SlotId, PlayerState | null> {
+    const playersBySlot: Record<SlotId, PlayerState | null> = {
+      A: null,
+      B: null
+    };
+
+    for (const player of this.getOrderedPlayers()) {
+      playersBySlot[player.slot] = player;
+    }
+
+    return playersBySlot;
+  }
+
+  private invalidateState(options: { playersChanged?: boolean } = {}) {
+    this.stateVersion += 1;
+
+    if (options.playersChanged) {
+      this.orderedPlayersCache = null;
+    }
+  }
+
+  private refreshSnapshotCache() {
+    if (!this.engine || this.snapshotCacheVersion === this.stateVersion) {
+      return;
+    }
+
+    const playersBySlot = this.getPlayersBySlot();
+    this.snapshotCache.clear();
+
+    for (const player of this.getOrderedPlayers()) {
+      const snapshot = this.applyPlayerMetadata(
+        this.engine.getSnapshotFor(player.slot),
+        playersBySlot
+      );
+
+      this.snapshotCache.set(player.sessionId, snapshot);
+    }
+
+    this.snapshotCacheVersion = this.stateVersion;
   }
 }

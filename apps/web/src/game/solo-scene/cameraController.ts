@@ -7,6 +7,13 @@ const CAMERA_LERP_SPEED = 4.4;
 const CAMERA_LOOK_TARGET_Z_BIAS = 0.4;
 const CAMERA_OFFSET_Z = 22;
 
+interface ViewportBounds {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+}
+
 export class SoloSceneCameraController {
   readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 250);
   private readonly idleCameraPosition = new THREE.Vector3(0, CAMERA_HEIGHT, CAMERA_OFFSET_Z);
@@ -15,6 +22,7 @@ export class SoloSceneCameraController {
   private readonly screenNdc = new THREE.Vector2();
   private readonly scratchCameraPosition = new THREE.Vector3();
   private readonly scratchLookTarget = new THREE.Vector3();
+  private viewportBounds: ViewportBounds | null = null;
 
   constructor() {
     this.camera.position.copy(this.idleCameraPosition);
@@ -23,18 +31,7 @@ export class SoloSceneCameraController {
 
   update(snapshot: SessionSnapshot | null, delta: number) {
     if (snapshot) {
-      const targets = getCameraRigTargets(snapshot);
-
-      this.scratchCameraPosition.set(
-        targets.position.x,
-        targets.position.y,
-        targets.position.z
-      );
-      this.scratchLookTarget.set(
-        targets.lookTarget.x,
-        targets.lookTarget.y,
-        targets.lookTarget.z
-      );
+      applyCameraRigTargets(snapshot, this.scratchCameraPosition, this.scratchLookTarget);
     } else {
       this.scratchCameraPosition.copy(this.idleCameraPosition);
       this.scratchLookTarget.copy(this.idleLookTarget);
@@ -52,14 +49,19 @@ export class SoloSceneCameraController {
     this.camera.updateProjectionMatrix();
   }
 
-  screenPointToWorld(
-    canvas: HTMLCanvasElement,
-    clientX: number,
-    clientY: number
-  ) {
-    const bounds = canvas.getBoundingClientRect();
+  setViewportBounds(bounds: DOMRectReadOnly) {
+    this.viewportBounds = {
+      height: bounds.height,
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width
+    };
+  }
 
-    if (bounds.width <= 0 || bounds.height <= 0) {
+  screenPointToWorld(clientX: number, clientY: number) {
+    const bounds = this.viewportBounds;
+
+    if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
       return null;
     }
 
@@ -85,6 +87,22 @@ export class SoloSceneCameraController {
 }
 
 export function getCameraRigTargets(snapshot: SessionSnapshot) {
+  const position = new THREE.Vector3();
+  const lookTarget = new THREE.Vector3();
+
+  applyCameraRigTargets(snapshot, position, lookTarget);
+
+  return {
+    lookTarget,
+    position
+  };
+}
+
+function applyCameraRigTargets(
+  snapshot: SessionSnapshot,
+  position: THREE.Vector3,
+  lookTarget: THREE.Vector3
+) {
   const zDirection = snapshot.localPlayer.slot === "B" ? -1 : 1;
   const focusX =
     snapshot.localPlayer.x +
@@ -93,18 +111,16 @@ export function getCameraRigTargets(snapshot: SessionSnapshot) {
     snapshot.localPlayer.z +
     (snapshot.hud.cursorZ - snapshot.localPlayer.z) * 0.32;
 
-  return {
-    lookTarget: {
-      x: focusX,
-      y: 1.5,
-      z: focusZ + CAMERA_LOOK_TARGET_Z_BIAS * zDirection
-    },
-    position: {
-      x: snapshot.localPlayer.x,
-      y: CAMERA_HEIGHT,
-      z: snapshot.localPlayer.z + CAMERA_OFFSET_Z * zDirection
-    }
-  };
+  position.set(
+    snapshot.localPlayer.x,
+    CAMERA_HEIGHT,
+    snapshot.localPlayer.z + CAMERA_OFFSET_Z * zDirection
+  );
+  lookTarget.set(
+    focusX,
+    1.5,
+    focusZ + CAMERA_LOOK_TARGET_Z_BIAS * zDirection
+  );
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -7,11 +7,14 @@ import {
 
 export function bootSoloPage(root: HTMLDivElement) {
   const ui = renderSoloPage(root);
+  let lastHud: ReturnType<typeof presentSoloHud> | null = null;
   let teardown: (() => void) | null = null;
 
   const remountSession = () => {
     teardown?.();
     teardown = mountSoloSession(ui.viewport, (snapshot) => {
+      const hud = presentSoloHud(snapshot);
+
       renderSessionHud(
         {
           actionButton: ui.reset,
@@ -34,12 +37,15 @@ export function bootSoloPage(root: HTMLDivElement) {
           structures: ui.structures,
           time: ui.time
         },
-        presentSoloHud(snapshot)
+        hud,
+        lastHud
       );
+      lastHud = hud;
     });
   };
 
   ui.reset.addEventListener("click", () => {
+    lastHud = null;
     remountSession();
   });
 

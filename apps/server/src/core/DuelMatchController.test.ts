@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { COUNTDOWN_MS } from "@snowbattle/shared";
+import { COUNTDOWN_MS, SoloRulesEngine } from "@snowbattle/shared";
 
 import { DuelMatchController } from "./DuelMatchController.js";
 
@@ -56,5 +56,29 @@ describe("DuelMatchController", () => {
     expect(snapshot?.localPlayer.guestName).toBe("Alpha");
     expect(snapshot?.opponentPlayer.guestName).toBe("Beta");
     expect(snapshot?.match.lifecycle).toBe("in_match");
+  });
+
+  it("caches localised snapshots until the controller state changes", () => {
+    const getSnapshotForSpy = vi.spyOn(SoloRulesEngine.prototype, "getSnapshotFor");
+    const controller = new DuelMatchController("room-4");
+    controller.addPlayer({ sessionId: "a", guestName: "Alpha" });
+    controller.addPlayer({ sessionId: "b", guestName: "Beta" });
+    controller.setReady("a", true);
+    controller.setReady("b", true);
+    controller.maybeStartCountdown(1_000);
+    controller.tick(COUNTDOWN_MS + 1, 1_000 + COUNTDOWN_MS + 1);
+
+    controller.getSnapshotFor("a");
+    controller.getSnapshotFor("a");
+    controller.getSnapshotFor("b");
+    controller.getSnapshotFor("b");
+
+    expect(getSnapshotForSpy).toHaveBeenCalledTimes(2);
+
+    controller.tick(50, 1_000 + COUNTDOWN_MS + 51);
+    controller.getSnapshotFor("a");
+    controller.getSnapshotFor("b");
+
+    expect(getSnapshotForSpy).toHaveBeenCalledTimes(4);
   });
 });

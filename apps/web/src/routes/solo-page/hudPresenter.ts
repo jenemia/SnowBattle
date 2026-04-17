@@ -110,30 +110,34 @@ export function presentDuelHud(snapshot: SessionSnapshot): SoloHudViewModel {
 
 export function renderSessionHud(
   elements: SessionHudElements,
-  hud: SoloHudViewModel
+  hud: SoloHudViewModel,
+  previous: SoloHudViewModel | null = null
 ) {
-  elements.bonfire.textContent = hud.bonfireText;
-  elements.build.textContent = hud.buildText;
-  elements.cooldown.textContent = hud.cooldownText;
-  elements.cursor.textContent = hud.cursorText;
-  elements.hp.textContent = hud.hpText;
-  elements.mode.textContent = hud.modeText;
-  elements.opponentHp.textContent = hud.opponentHpText;
-  elements.packedSnow.textContent = hud.packedSnowText;
-  elements.phase.textContent = hud.phaseText;
-  elements.position.textContent = hud.positionText;
-  elements.preview.textContent = hud.previewText;
-  elements.projectiles.textContent = hud.projectilesText;
-  elements.readout.textContent = hud.readoutText;
-  elements.result.textContent = hud.resultText;
-  elements.snowLoad.textContent = hud.snowLoadText;
-  elements.status.textContent = hud.statusText;
-  elements.structures.textContent = hud.structuresText;
-  elements.time.textContent = hud.timeText;
+  setTextIfChanged(elements.bonfire, previous?.bonfireText, hud.bonfireText);
+  setTextIfChanged(elements.build, previous?.buildText, hud.buildText);
+  setTextIfChanged(elements.cooldown, previous?.cooldownText, hud.cooldownText);
+  setTextIfChanged(elements.cursor, previous?.cursorText, hud.cursorText);
+  setTextIfChanged(elements.hp, previous?.hpText, hud.hpText);
+  setTextIfChanged(elements.mode, previous?.modeText, hud.modeText);
+  setTextIfChanged(elements.opponentHp, previous?.opponentHpText, hud.opponentHpText);
+  setTextIfChanged(elements.packedSnow, previous?.packedSnowText, hud.packedSnowText);
+  setTextIfChanged(elements.phase, previous?.phaseText, hud.phaseText);
+  setTextIfChanged(elements.position, previous?.positionText, hud.positionText);
+  setTextIfChanged(elements.preview, previous?.previewText, hud.previewText);
+  setTextIfChanged(elements.projectiles, previous?.projectilesText, hud.projectilesText);
+  setTextIfChanged(elements.readout, previous?.readoutText, hud.readoutText);
+  setTextIfChanged(elements.result, previous?.resultText, hud.resultText);
+  setTextIfChanged(elements.snowLoad, previous?.snowLoadText, hud.snowLoadText);
+  setTextIfChanged(elements.status, previous?.statusText, hud.statusText);
+  setTextIfChanged(elements.structures, previous?.structuresText, hud.structuresText);
+  setTextIfChanged(elements.time, previous?.timeText, hud.timeText);
 
   if (elements.actionButton) {
-    elements.actionButton.disabled = hud.actionDisabled;
-    elements.actionButton.textContent = hud.actionText;
+    if (previous?.actionDisabled !== hud.actionDisabled) {
+      elements.actionButton.disabled = hud.actionDisabled;
+    }
+
+    setTextIfChanged(elements.actionButton, previous?.actionText, hud.actionText);
   }
 }
 
@@ -150,12 +154,21 @@ export function presentDuelSkillStrip(
 
 export function renderDuelSkillStrip(
   elements: DuelSkillStripElements,
-  strip: DuelSkillStripViewModel
+  strip: DuelSkillStripViewModel,
+  previous: DuelSkillStripViewModel | null = null
 ) {
-  elements.cooldown.textContent = strip.cooldownText;
-  elements.heaterBeacon.textContent = strip.heaterBeaconText;
-  elements.snowmanTurret.textContent = strip.snowmanTurretText;
-  elements.wall.textContent = strip.wallText;
+  setTextIfChanged(elements.cooldown, previous?.cooldownText, strip.cooldownText);
+  setTextIfChanged(
+    elements.heaterBeacon,
+    previous?.heaterBeaconText,
+    strip.heaterBeaconText
+  );
+  setTextIfChanged(
+    elements.snowmanTurret,
+    previous?.snowmanTurretText,
+    strip.snowmanTurretText
+  );
+  setTextIfChanged(elements.wall, previous?.wallText, strip.wallText);
 }
 
 function getModeText(snapshot: SessionSnapshot) {
@@ -264,4 +277,14 @@ function getRemainingSkillCount(
   }).length;
 
   return Math.max(0, getStructureMaxCount(buildType) - activeOwnedCount);
+}
+
+function setTextIfChanged(
+  element: Pick<HTMLElement, "textContent">,
+  previous: string | undefined,
+  next: string
+) {
+  if (previous !== next) {
+    element.textContent = next;
+  }
 }

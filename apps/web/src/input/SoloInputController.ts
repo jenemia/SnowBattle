@@ -1,4 +1,8 @@
-import type { BuildType, GameSessionProvider } from "@snowbattle/shared";
+import {
+  SERVER_TICK_RATE,
+  type BuildType,
+  type GameSessionProvider
+} from "@snowbattle/shared";
 
 import { getNormalizedMovement, normalizeMovementKey } from "../game/soloMath";
 import type { SoloArenaScene } from "../game/SoloArenaScene";
@@ -10,8 +14,8 @@ const BUILD_KEY_TO_TYPE: Record<string, BuildType> = {
 };
 
 export class SoloInputController {
-  private animationFrame = 0;
   private connected = false;
+  private flushInterval: number | null = null;
   private pointerActive = false;
   private pointerClientX = 0;
   private pointerClientY = 0;
@@ -35,7 +39,9 @@ export class SoloInputController {
     this.target.addEventListener("pointerdown", this.handlePointerDown);
     this.target.addEventListener("pointerleave", this.handlePointerLeave);
     this.target.addEventListener("pointermove", this.handlePointerMove);
-    this.tick();
+    this.flushInterval = window.setInterval(() => {
+      this.sendInputUpdate();
+    }, 1000 / SERVER_TICK_RATE);
   }
 
   disconnect() {
@@ -50,18 +56,11 @@ export class SoloInputController {
     this.target.removeEventListener("pointerdown", this.handlePointerDown);
     this.target.removeEventListener("pointerleave", this.handlePointerLeave);
     this.target.removeEventListener("pointermove", this.handlePointerMove);
-    window.cancelAnimationFrame(this.animationFrame);
-  }
-
-  private tick = () => {
-    if (!this.connected) {
-      return;
+    if (this.flushInterval !== null) {
+      window.clearInterval(this.flushInterval);
+      this.flushInterval = null;
     }
-
-    this.sendInputUpdate();
-
-    this.animationFrame = window.requestAnimationFrame(this.tick);
-  };
+  }
 
   private readonly handleContextMenu = (event: MouseEvent) => {
     event.preventDefault();
@@ -142,6 +141,10 @@ export class SoloInputController {
   };
 
   private sendInputUpdate() {
+    if (!this.connected) {
+      return;
+    }
+
     const movement = getNormalizedMovement(this.pressedKeys);
     const worldPoint = this.pointerActive
       ? this.scene.screenPointToWorld(this.pointerClientX, this.pointerClientY)
