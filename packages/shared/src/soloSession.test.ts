@@ -193,7 +193,13 @@ describe("SoloRulesEngine", () => {
     expect(firingSnapshot.projectiles).toHaveLength(1);
     expect(firingSnapshot.projectiles[0]?.sourceType).toBe("snowman_turret");
 
-    advance(engine, 500);
+    advance(engine, 250);
+
+    const travelSnapshot = engine.getSnapshot();
+    expect(travelSnapshot.projectiles).toHaveLength(1);
+    expect(travelSnapshot.opponentPlayer.snowLoad).toBe(0);
+
+    advance(engine, 250);
 
     const hitSnapshot = engine.getSnapshot();
     expect(hitSnapshot.projectiles).toHaveLength(0);

@@ -19,6 +19,8 @@ import type {
 } from "./runtimeTypes.js";
 import { circleIntersectsWall } from "./geometry.js";
 
+const TURRET_PROJECTILE_SPEED = 10;
+
 export function trySpawnProjectile(runtime: SoloRuntimeState, player: PlayerRuntimeState) {
   if (player.fireCooldownRemaining > 0) {
     return;
@@ -75,8 +77,8 @@ export function spawnTurretProjectile(
     ownerSlot: structure.ownerSlot,
     sourceType: "snowman_turret",
     traveled: 0,
-    vx: directionX * PROJECTILE_SPEED,
-    vz: directionZ * PROJECTILE_SPEED,
+    vx: directionX * TURRET_PROJECTILE_SPEED,
+    vz: directionZ * TURRET_PROJECTILE_SPEED,
     x: structure.x + directionX * PROJECTILE_SPAWN_DISTANCE,
     z: structure.z + directionZ * PROJECTILE_SPAWN_DISTANCE
   });
