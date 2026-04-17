@@ -27,7 +27,7 @@ describe("SoloStructureRenderer", () => {
 
     expect(bounds).toHaveLength(3);
     expect(bounds[0]?.min.y).toBeGreaterThanOrEqual(0.02999);
-    expect(bounds[1]?.min.y).toBeGreaterThanOrEqual(0.17999);
+    expect(bounds[1]?.min.y).toBeGreaterThanOrEqual(0.33999);
     expect(bounds[2]?.min.y).toBeGreaterThanOrEqual(0.02999);
   });
 
@@ -66,8 +66,8 @@ describe("SoloStructureRenderer", () => {
 
     expect(bounds[0]?.min.y).toBeCloseTo(0.03, 5);
     expect(bounds[0]?.max.y).toBeCloseTo(3.03, 5);
-    expect(bounds[1]?.min.y).toBeCloseTo(0.18, 5);
-    expect(bounds[1]?.max.y).toBeCloseTo(2.48, 5);
+    expect(bounds[1]?.min.y).toBeCloseTo(0.34, 5);
+    expect(bounds[1]?.max.y).toBeCloseTo(2.64, 5);
     expect(bounds[2]?.min.y).toBeCloseTo(0.03, 5);
     expect(bounds[2]?.max.y).toBeCloseTo(1.03, 5);
   });

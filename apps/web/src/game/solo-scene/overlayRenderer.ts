@@ -11,7 +11,7 @@ import {
 const CURSOR_RING_Y = 0.03;
 const PREVIEW_ALPHA = 0.38;
 const BUILDING_GROUND_CLEARANCE = 0.03;
-const TURRET_GROUND_CLEARANCE = 0.18;
+const TURRET_GROUND_CLEARANCE = 0.34;
 
 export class SoloOverlayRenderer {
   private readonly buildPreview: THREE.Mesh;
