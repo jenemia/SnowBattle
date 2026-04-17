@@ -27,7 +27,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     <div class="shell shell--solo" data-testid="solo-shell">
       <section class="hero hero--solo">
         <div class="eyebrow">Solo Movement Lab · Low Poly Runner</div>
-        <h1 class="title">Snow<span>Stride</span></h1>
+        <h1 class="title">Blizzard<span>Brawl</span></h1>
         <p class="lede">
           A local-first duel harness that runs the session rules without a backend so we can
           ship combat, builds, and pacing now and move the same logic server-side later.
