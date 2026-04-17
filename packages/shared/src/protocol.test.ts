@@ -5,6 +5,8 @@ import { parseClientMessage } from "./validation.js";
 describe("shared client message validation", () => {
   it("accepts a valid session command", () => {
     const result = parseClientMessage("session:command", {
+      inputSeq: 1,
+      sentAtClientTime: 1234,
       type: "input:update",
       payload: {
         aimX: 6,
@@ -20,6 +22,8 @@ describe("shared client message validation", () => {
 
   it("rejects malformed payloads", () => {
     const result = parseClientMessage("session:command", {
+      inputSeq: 1,
+      sentAtClientTime: 1234,
       type: "input:update",
       payload: {
         aimX: 0,

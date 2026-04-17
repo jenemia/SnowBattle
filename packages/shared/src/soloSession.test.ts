@@ -36,7 +36,7 @@ describe("SoloRulesEngine", () => {
     advance(engine, 800);
 
     setInput(engine, "A", { aimY: -10, moveY: 0, pointerActive: true });
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 1500);
 
     const snapshot = engine.getSnapshot();
@@ -52,7 +52,7 @@ describe("SoloRulesEngine", () => {
     advance(engine, 800);
 
     setInput(engine, "A", { aimY: -10, moveY: 0, pointerActive: true });
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 3000);
 
     expect(engine.getSnapshot().opponentPlayer.snowLoad).toBeLessThan(20);
@@ -62,7 +62,7 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
     setInput(engine, "A", { aimY: 20, pointerActive: true });
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 1000);
 
     expect(engine.getSnapshot().projectiles).toHaveLength(0);
@@ -99,13 +99,10 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
     setInput(engine, "A", { aimY: 5, pointerActive: true });
-    engine.receiveCommand("A", {
-      type: "build:select",
-      payload: { buildType: "wall" }
-    });
+    engine.receiveCommand("A", buildSelect("wall"));
 
     advance(engine, SOLO_FINAL_PUSH_START_MS);
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 50);
 
     const snapshot = engine.getSnapshot();
@@ -118,12 +115,9 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
     setInput(engine, "A", { aimY: 5, pointerActive: true });
-    engine.receiveCommand("A", {
-      type: "build:select",
-      payload: { buildType: "wall" }
-    });
+    engine.receiveCommand("A", buildSelect("wall"));
 
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 50);
 
     const snapshot = engine.getSnapshot();
@@ -135,12 +129,9 @@ describe("SoloRulesEngine", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
     setInput(engine, "A", { aimX: 4, aimY: 5, pointerActive: true });
-    engine.receiveCommand("A", {
-      type: "build:select",
-      payload: { buildType: "wall" }
-    });
+    engine.receiveCommand("A", buildSelect("wall"));
 
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 50);
 
     const snapshot = engine.getSnapshot();
@@ -168,12 +159,9 @@ describe("SoloRulesEngine", () => {
     runtime.runtime.players.B.z = 5;
 
     setInput(engine, "A", { aimX: 4, aimY: 5, pointerActive: true });
-    engine.receiveCommand("A", {
-      type: "build:select",
-      payload: { buildType: "wall" }
-    });
+    engine.receiveCommand("A", buildSelect("wall"));
 
-    engine.receiveCommand("A", { type: "action:primary" });
+    engine.receiveCommand("A", actionPrimary());
     advance(engine, 50);
 
     const snapshot = engine.getSnapshot();
@@ -325,14 +313,43 @@ function setInput(
     pointerActive?: boolean;
   }
 ) {
-  engine.receiveCommand(slot, {
-    type: "input:update",
-    payload: {
-      aimX,
-      aimY,
-      moveX,
-      moveY,
-      pointerActive
-    }
-  });
+  engine.receiveCommand(slot, inputUpdate({
+    aimX,
+    aimY,
+    moveX,
+    moveY,
+    pointerActive
+  }));
+}
+
+let nextInputSeq = 1;
+
+function actionPrimary() {
+  return {
+    inputSeq: nextInputSeq++,
+    type: "action:primary" as const
+  };
+}
+
+function buildSelect(buildType: "wall" | "snowman_turret" | "heater_beacon") {
+  return {
+    inputSeq: nextInputSeq++,
+    payload: { buildType },
+    type: "build:select" as const
+  };
+}
+
+function inputUpdate(payload: {
+  aimX: number;
+  aimY: number;
+  moveX: number;
+  moveY: number;
+  pointerActive: boolean;
+}) {
+  return {
+    inputSeq: nextInputSeq++,
+    payload,
+    sentAtClientTime: nextInputSeq,
+    type: "input:update" as const
+  };
 }

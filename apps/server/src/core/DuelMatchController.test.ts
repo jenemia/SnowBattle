@@ -81,4 +81,41 @@ describe("DuelMatchController", () => {
 
     expect(getSnapshotForSpy).toHaveBeenCalledTimes(4);
   });
+
+  it("acks the latest processed input sequence after applying queued commands", () => {
+    const controller = new DuelMatchController("room-5");
+    controller.addPlayer({ sessionId: "a", guestName: "Alpha" });
+    controller.addPlayer({ sessionId: "b", guestName: "Beta" });
+    controller.setReady("a", true);
+    controller.setReady("b", true);
+    controller.maybeStartCountdown(1_000);
+    controller.tick(COUNTDOWN_MS + 1, 1_000 + COUNTDOWN_MS + 1);
+
+    controller.receiveCommand("a", {
+      inputSeq: 1,
+      payload: {
+        aimX: 0,
+        aimY: 5,
+        moveX: 0,
+        moveY: 0,
+        pointerActive: true
+      },
+      sentAtClientTime: 1,
+      type: "input:update"
+    });
+    controller.receiveCommand("a", {
+      inputSeq: 2,
+      payload: { buildType: "wall" },
+      type: "build:select"
+    });
+    controller.receiveCommand("a", {
+      inputSeq: 3,
+      type: "action:primary"
+    });
+
+    controller.tick(50, 1_000 + COUNTDOWN_MS + 51);
+
+    expect(controller.getAckInputSeq("a")).toBe(3);
+    expect(controller.getSnapshotFor("a")?.structures).toHaveLength(1);
+  });
 });

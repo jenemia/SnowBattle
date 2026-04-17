@@ -1,6 +1,7 @@
 import {
   COUNTDOWN_MS,
   SoloRulesEngine,
+  type InputUpdateCommand,
   type MatchLifecycle,
   type MatchResultMessage,
   type MatchResultReason,
@@ -10,8 +11,12 @@ import {
 } from "@snowbattle/shared";
 
 interface PlayerState {
+  ackInputSeq: number;
   connected: boolean;
   guestName: string;
+  latestInput: InputUpdateCommand | null;
+  latestInputSeq: number;
+  pendingActions: Exclude<SessionCommand, InputUpdateCommand>[];
   ready: boolean;
   sessionId: string;
   slot: SlotId;
@@ -44,8 +49,12 @@ export class DuelMatchController {
     }
 
     const player: PlayerState = {
+      ackInputSeq: 0,
       connected: true,
       guestName: guestName?.trim() || `Rider-${slot}`,
+      latestInput: null,
+      latestInputSeq: -1,
+      pendingActions: [],
       ready: false,
       sessionId,
       slot
@@ -76,17 +85,27 @@ export class DuelMatchController {
   }
 
   receiveCommand(sessionId: string, command: SessionCommand) {
-    if (this.lifecycle !== "in_match" || !this.engine) {
-      return;
-    }
-
     const player = this.players.get(sessionId);
 
     if (!player) {
       return;
     }
 
-    this.engine.receiveCommand(player.slot, command);
+    if (command.type === "input:update") {
+      if (command.inputSeq >= player.latestInputSeq) {
+        player.latestInput = command;
+        player.latestInputSeq = command.inputSeq;
+        this.invalidateState();
+      }
+
+      return;
+    }
+
+    if (this.lifecycle !== "in_match" || !this.engine) {
+      return;
+    }
+
+    insertPendingAction(player.pendingActions, command);
     this.invalidateState();
   }
 
@@ -180,6 +199,24 @@ export class DuelMatchController {
       return;
     }
 
+    for (const player of this.getOrderedPlayers()) {
+      if (player.latestInput) {
+        this.engine.receiveCommand(player.slot, player.latestInput);
+        player.ackInputSeq = Math.max(player.ackInputSeq, player.latestInput.inputSeq);
+      }
+
+      while (player.pendingActions.length > 0) {
+        const action = player.pendingActions.shift();
+
+        if (!action) {
+          break;
+        }
+
+        this.engine.receiveCommand(player.slot, action);
+        player.ackInputSeq = Math.max(player.ackInputSeq, action.inputSeq);
+      }
+    }
+
     this.engine.tick(deltaMs);
     this.invalidateState();
 
@@ -220,6 +257,9 @@ export class DuelMatchController {
     this.result = null;
 
     for (const player of this.players.values()) {
+      player.latestInput = null;
+      player.latestInputSeq = -1;
+      player.pendingActions.length = 0;
       player.ready = false;
     }
 
@@ -252,6 +292,10 @@ export class DuelMatchController {
     this.refreshSnapshotCache();
 
     return this.snapshotCache.get(sessionId) ?? null;
+  }
+
+  getAckInputSeq(sessionId: string) {
+    return this.players.get(sessionId)?.ackInputSeq ?? 0;
   }
 
   getOpponentGuestName(slot: SlotId) {
@@ -372,4 +416,18 @@ export class DuelMatchController {
 
     this.snapshotCacheVersion = this.stateVersion;
   }
+}
+
+function insertPendingAction(
+  queue: Exclude<SessionCommand, InputUpdateCommand>[],
+  action: Exclude<SessionCommand, InputUpdateCommand>
+) {
+  const index = queue.findIndex((candidate) => candidate.inputSeq > action.inputSeq);
+
+  if (index === -1) {
+    queue.push(action);
+    return;
+  }
+
+  queue.splice(index, 0, action);
 }

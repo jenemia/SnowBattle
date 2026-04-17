@@ -1,7 +1,9 @@
 import {
   SERVER_TICK_RATE,
   SoloRulesEngine,
+  type AuthoritativeStateEnvelope,
   type GameSessionProvider,
+  type SessionMeta,
   type SessionCommand,
   type SessionProviderEvent,
   type SessionSnapshot
@@ -11,9 +13,20 @@ export class LocalSoloProvider implements GameSessionProvider {
   private animationFrame = 0;
   private connected = false;
   private lastTickAt = 0;
+  private lastInputSeq = 0;
+  private latestEnvelope: AuthoritativeStateEnvelope | null = null;
+  private readonly meta: SessionMeta = {
+    guestName: "You",
+    localSlot: "A",
+    opponentGuestName: "Bot",
+    roomId: "local-solo"
+  };
   private readonly eventListeners = new Set<(event: SessionProviderEvent) => void>();
   private latestSnapshot: SessionSnapshot | null = null;
   private readonly listeners = new Set<(snapshot: SessionSnapshot) => void>();
+  private readonly stateListeners = new Set<
+    (state: AuthoritativeStateEnvelope) => void
+  >();
   private readonly engine = new SoloRulesEngine({
     guestNames: { A: "You", B: "Bot" }
   });
@@ -26,6 +39,12 @@ export class LocalSoloProvider implements GameSessionProvider {
     this.connected = true;
     this.lastTickAt = performance.now();
     this.latestSnapshot = this.engine.getSnapshot();
+    this.latestEnvelope = {
+      ackInputSeq: this.lastInputSeq,
+      roomId: this.meta.roomId,
+      serverTick: 0,
+      snapshot: this.latestSnapshot
+    };
     this.emit();
     this.emitEvent({
       type: "status",
@@ -54,6 +73,7 @@ export class LocalSoloProvider implements GameSessionProvider {
   }
 
   send(command: SessionCommand) {
+    this.lastInputSeq = Math.max(this.lastInputSeq, command.inputSeq);
     this.engine.receiveCommand("A", command);
   }
 
@@ -81,6 +101,26 @@ export class LocalSoloProvider implements GameSessionProvider {
     return this.latestSnapshot;
   }
 
+  subscribeStateEnvelope(listener: (state: AuthoritativeStateEnvelope) => void) {
+    this.stateListeners.add(listener);
+
+    if (this.latestEnvelope) {
+      listener(this.latestEnvelope);
+    }
+
+    return () => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  getLatestStateEnvelope() {
+    return this.latestEnvelope;
+  }
+
+  getSessionMeta() {
+    return this.meta;
+  }
+
   private readonly tick = (now: number) => {
     if (!this.connected) {
       return;
@@ -97,6 +137,12 @@ export class LocalSoloProvider implements GameSessionProvider {
     }
 
     this.latestSnapshot = this.engine.getSnapshot();
+    this.latestEnvelope = {
+      ackInputSeq: this.lastInputSeq,
+      roomId: this.meta.roomId,
+      serverTick: Math.round(this.lastTickAt / (1000 / SERVER_TICK_RATE)),
+      snapshot: this.latestSnapshot
+    };
     this.emit();
     this.animationFrame = window.requestAnimationFrame(this.tick);
   };
@@ -108,6 +154,12 @@ export class LocalSoloProvider implements GameSessionProvider {
 
     for (const listener of this.listeners) {
       listener(this.latestSnapshot);
+    }
+
+    if (this.latestEnvelope) {
+      for (const listener of this.stateListeners) {
+        listener(this.latestEnvelope);
+      }
     }
   }
 

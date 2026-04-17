@@ -29,6 +29,7 @@ export class DuelRoom extends Room {
   private lastCountdownValue = Number.NaN;
   private readonly messageCache = new DuelRoomMessageCache();
   private resultBroadcastAt = 0;
+  private serverTick = 0;
 
   onCreate() {
     this.autoDispose = true;
@@ -91,6 +92,7 @@ export class DuelRoom extends Room {
     this.setSimulationInterval((deltaTime) => {
       const now = Date.now();
       const previousLifecycle = this.lastLifecycle;
+      this.serverTick += 1;
       this.controller.tick(deltaTime, now);
       this.syncQueueMetadata();
       this.broadcastLifecycleMessages(now, previousLifecycle);
@@ -256,8 +258,10 @@ export class DuelRoom extends Room {
 
       if (snapshot) {
         this.sendIfChanged(target, "server:state", {
+          ackInputSeq: this.controller.getAckInputSeq(target.sessionId),
           status: "state",
           roomId: this.roomId,
+          serverTick: this.serverTick,
           snapshot
         } satisfies StateSnapshotMessage, force);
       } else {
@@ -275,8 +279,10 @@ export class DuelRoom extends Room {
       }
 
       this.sendIfChanged(client, "server:state", {
+        ackInputSeq: this.controller.getAckInputSeq(client.sessionId),
         status: "state",
         roomId: this.roomId,
+        serverTick: this.serverTick,
         snapshot
       } satisfies StateSnapshotMessage, force);
     }

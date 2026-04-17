@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { SessionCommand, SessionSnapshot } from "./session.js";
+import type {
+  AuthoritativeStateEnvelope,
+  SessionCommand
+} from "./session.js";
 
 export const slotSchema = z.enum(["A", "B"]);
 export type SlotId = z.infer<typeof slotSchema>;
@@ -32,6 +35,8 @@ const buildTypeSchema = z.enum(["wall", "snowman_turret", "heater_beacon"]);
 
 export const sessionCommandSchema = z.discriminatedUnion("type", [
   z.object({
+    inputSeq: z.number().int().nonnegative(),
+    sentAtClientTime: z.number().nonnegative(),
     type: z.literal("input:update"),
     payload: z.object({
       aimX: z.number(),
@@ -42,15 +47,18 @@ export const sessionCommandSchema = z.discriminatedUnion("type", [
     })
   }),
   z.object({
+    inputSeq: z.number().int().nonnegative(),
     type: z.literal("action:primary")
   }),
   z.object({
+    inputSeq: z.number().int().nonnegative(),
     type: z.literal("build:select"),
     payload: z.object({
       buildType: buildTypeSchema
     })
   }),
   z.object({
+    inputSeq: z.number().int().nonnegative(),
     type: z.literal("build:cancel")
   })
 ]);
@@ -97,10 +105,8 @@ export interface CountdownMessage {
   remainingMs: number;
 }
 
-export interface StateSnapshotMessage {
+export interface StateSnapshotMessage extends AuthoritativeStateEnvelope {
   status: "state";
-  roomId: string;
-  snapshot: SessionSnapshot;
 }
 
 export interface MatchResultMessage {

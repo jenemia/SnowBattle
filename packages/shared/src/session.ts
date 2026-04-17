@@ -12,7 +12,16 @@ export type SessionResultReason =
   | "forfeit"
   | "disconnect";
 
+export interface SessionMeta {
+  guestName: string;
+  localSlot: SlotId;
+  opponentGuestName: string;
+  roomId: string;
+}
+
 export interface InputUpdateCommand {
+  inputSeq: number;
+  sentAtClientTime: number;
   type: "input:update";
   payload: {
     aimX: number;
@@ -24,10 +33,12 @@ export interface InputUpdateCommand {
 }
 
 export interface ActionPrimaryCommand {
+  inputSeq: number;
   type: "action:primary";
 }
 
 export interface BuildSelectCommand {
+  inputSeq: number;
   type: "build:select";
   payload: {
     buildType: BuildType;
@@ -35,6 +46,7 @@ export interface BuildSelectCommand {
 }
 
 export interface BuildCancelCommand {
+  inputSeq: number;
   type: "build:cancel";
 }
 
@@ -113,6 +125,13 @@ export interface SessionSnapshot {
   hud: SessionHudSnapshot;
 }
 
+export interface AuthoritativeStateEnvelope {
+  ackInputSeq: number;
+  roomId: string;
+  serverTick: number;
+  snapshot: SessionSnapshot;
+}
+
 export type SessionStatusCode =
   | "idle"
   | "connecting"
@@ -175,11 +194,21 @@ export type SessionProviderEvent =
   | SessionCountdownEvent
   | SessionRequeueEvent;
 
+export interface PresentationFrame {
+  renderedAt: number;
+  snapshot: SessionSnapshot;
+}
+
 export interface GameSessionProvider {
   connect(): Promise<void> | void;
   disconnect(): Promise<void> | void;
   send(command: SessionCommand): void;
   subscribeEvent(listener: (event: SessionProviderEvent) => void): () => void;
   subscribe(listener: (snapshot: SessionSnapshot) => void): () => void;
+  subscribeStateEnvelope(
+    listener: (state: AuthoritativeStateEnvelope) => void
+  ): () => void;
+  getLatestStateEnvelope(): AuthoritativeStateEnvelope | null;
   getLatestSnapshot(): SessionSnapshot | null;
+  getSessionMeta(): SessionMeta | null;
 }

@@ -101,7 +101,13 @@ function createProvider() {
     emit(snapshot: SessionSnapshot) {
       listener?.(snapshot);
     },
+    getLatestStateEnvelope() {
+      return null;
+    },
     getLatestSnapshot() {
+      return null;
+    },
+    getSessionMeta() {
       return null;
     },
     send: vi.fn(),
@@ -112,6 +118,9 @@ function createProvider() {
         listener = null;
         unsubscribe();
       };
+    },
+    subscribeStateEnvelope() {
+      return () => {};
     },
     subscribeEvent() {
       return () => {};

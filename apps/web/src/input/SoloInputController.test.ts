@@ -49,10 +49,12 @@ describe("SoloInputController", () => {
       preventDefault: vi.fn()
     } as unknown as KeyboardEvent);
 
-    expect(provider.send).toHaveBeenCalledWith({
-      type: "build:select",
-      payload: { buildType: "snowman_turret" }
-    });
+    expect(provider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "build:select",
+        payload: { buildType: "snowman_turret" }
+      })
+    );
   });
 
   it("ignores repeated build hotkeys", () => {
@@ -82,27 +84,38 @@ describe("SoloInputController", () => {
     } as unknown as PointerEvent);
     controller.disconnect();
 
-    expect(provider.send).toHaveBeenNthCalledWith(1, {
-      type: "input:update",
-      payload: {
-        aimX: 4,
-        aimY: -2,
-        moveX: 0,
-        moveY: 0,
-        pointerActive: true
-      }
-    });
-    expect(provider.send).toHaveBeenNthCalledWith(2, { type: "action:primary" });
+    expect(provider.send).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        type: "input:update",
+        payload: {
+          aimX: 4,
+          aimY: -2,
+          moveX: 0,
+          moveY: 0,
+          pointerActive: true
+        }
+      })
+    );
+    expect(provider.send).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ type: "action:primary" })
+    );
   });
 
-  it("flushes input updates at the server tick rate", () => {
+  it("keeps sending held movement input at the server tick rate", () => {
     const { controller, provider } = createController();
 
     controller.connect();
+    controller.handleKeyDown({
+      code: "ArrowUp",
+      key: "ArrowUp",
+      preventDefault: vi.fn()
+    } as unknown as KeyboardEvent);
     vi.advanceTimersByTime(2_000);
     controller.disconnect();
 
-    expect(getInputUpdates(provider.send)).toHaveLength(2 * SERVER_TICK_RATE);
+    expect(getInputUpdates(provider.send)).toHaveLength(1 + 2 * SERVER_TICK_RATE);
   });
 
   it("keeps recomputing aim while the pointer stays active", () => {
@@ -126,18 +139,18 @@ describe("SoloInputController", () => {
 
     const updates = getInputUpdates(provider.send);
 
-    expect(updates).toHaveLength(2);
+    expect(updates).toHaveLength(3);
     expect(updates[0].payload).toMatchObject({
       aimX: 4,
       aimY: 8,
       pointerActive: true
     });
-    expect(updates[1].payload).toMatchObject({
+    expect(updates[2].payload).toMatchObject({
       aimX: 9,
       aimY: -3,
       pointerActive: true
     });
-    expect(scene.screenPointToWorld).toHaveBeenCalledTimes(2);
+    expect(scene.screenPointToWorld).toHaveBeenCalledTimes(3);
   });
 
   it("mirrors movement input for slot B so screen-relative controls stay fixed", () => {
@@ -159,7 +172,8 @@ describe("SoloInputController", () => {
     vi.advanceTimersByTime(1000 / SERVER_TICK_RATE);
     controller.disconnect();
 
-    const [update] = getInputUpdates(provider.send);
+    const updates = getInputUpdates(provider.send);
+    const update = updates.at(-1);
     expect(update?.payload.moveX).toBeCloseTo(-Math.SQRT1_2, 5);
     expect(update?.payload.moveY).toBeCloseTo(Math.SQRT1_2, 5);
   });
@@ -172,7 +186,20 @@ function createController(
   snapshotOverride: SessionSnapshot | null = null
 ) {
   const provider = {
+    getLatestStateEnvelope: vi.fn(() => null),
     getLatestSnapshot: vi.fn(() => snapshotOverride),
+    getSessionMeta: vi.fn(() => {
+      if (!snapshotOverride) {
+        return null;
+      }
+
+      return {
+        guestName: "You",
+        localSlot: snapshotOverride.localPlayer.slot,
+        opponentGuestName: "Opponent",
+        roomId: "room-1"
+      };
+    }),
     send: vi.fn()
   };
   const scene = {

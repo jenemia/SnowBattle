@@ -1,12 +1,14 @@
 import { Client } from "@colyseus/sdk";
 import {
   HEARTBEAT_INTERVAL_MS,
+  type AuthoritativeStateEnvelope,
   type CountdownMessage,
   type GameSessionProvider,
   type MatchFoundMessage,
   type QueueStatusMessage,
   type RequeuePromptMessage,
   type SessionCommand,
+  type SessionMeta,
   type SessionProviderEvent,
   type SessionSnapshot,
   type StateSnapshotMessage
@@ -16,11 +18,17 @@ type RoomConnection = Awaited<ReturnType<Client["joinOrCreate"]>>;
 
 export class ColyseusSessionProvider implements GameSessionProvider {
   private connectPromise: Promise<void> | null = null;
+  private connectGuestName = "Guest";
   private readonly client: Client;
   private readonly eventListeners = new Set<(event: SessionProviderEvent) => void>();
   private heartbeatTimer: number | null = null;
+  private latestEnvelope: AuthoritativeStateEnvelope | null = null;
   private latestSnapshot: SessionSnapshot | null = null;
   private readonly listeners = new Set<(snapshot: SessionSnapshot) => void>();
+  private sessionMeta: SessionMeta | null = null;
+  private readonly stateListeners = new Set<
+    (state: AuthoritativeStateEnvelope) => void
+  >();
   private room: RoomConnection | null = null;
 
   constructor(
@@ -50,7 +58,10 @@ export class ColyseusSessionProvider implements GameSessionProvider {
   async disconnect() {
     const room = this.room;
     this.stopHeartbeat();
+    this.latestEnvelope = null;
+    this.latestSnapshot = null;
     this.room = null;
+    this.sessionMeta = null;
 
     if (!room) {
       return;
@@ -96,8 +107,29 @@ export class ColyseusSessionProvider implements GameSessionProvider {
     return this.latestSnapshot;
   }
 
+  subscribeStateEnvelope(listener: (state: AuthoritativeStateEnvelope) => void) {
+    this.stateListeners.add(listener);
+
+    if (this.latestEnvelope) {
+      listener(this.latestEnvelope);
+    }
+
+    return () => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  getLatestStateEnvelope() {
+    return this.latestEnvelope;
+  }
+
+  getSessionMeta() {
+    return this.sessionMeta;
+  }
+
   private async joinRoom() {
     const guestName = this.getGuestName().trim();
+    this.connectGuestName = guestName || "Guest";
     this.emitEvent({
       type: "status",
       attempt: 1,
@@ -183,6 +215,12 @@ export class ColyseusSessionProvider implements GameSessionProvider {
     });
 
     room.onMessage("server:match_found", (message: MatchFoundMessage) => {
+      this.sessionMeta = {
+        guestName: this.connectGuestName,
+        localSlot: message.slot,
+        opponentGuestName: message.opponentGuestName,
+        roomId: message.roomId
+      };
       this.emitEvent({
         type: "match_found",
         countdownFrom: message.countdownFrom,
@@ -217,7 +255,19 @@ export class ColyseusSessionProvider implements GameSessionProvider {
     });
 
     room.onMessage("server:state", (message: StateSnapshotMessage) => {
+      this.latestEnvelope = {
+        ackInputSeq: message.ackInputSeq,
+        roomId: message.roomId,
+        serverTick: message.serverTick,
+        snapshot: message.snapshot
+      };
       this.latestSnapshot = message.snapshot;
+      this.sessionMeta ??= {
+        guestName: this.connectGuestName,
+        localSlot: message.snapshot.localPlayer.slot,
+        opponentGuestName: message.snapshot.opponentPlayer.guestName,
+        roomId: message.roomId
+      };
       this.emit();
     });
 
@@ -251,7 +301,10 @@ export class ColyseusSessionProvider implements GameSessionProvider {
 
     room.onLeave(() => {
       this.stopHeartbeat();
+      this.latestEnvelope = null;
+      this.latestSnapshot = null;
       this.room = null;
+      this.sessionMeta = null;
       this.emitEvent({
         type: "status",
         code: "disconnected",
@@ -284,6 +337,12 @@ export class ColyseusSessionProvider implements GameSessionProvider {
 
     for (const listener of this.listeners) {
       listener(this.latestSnapshot);
+    }
+
+    if (this.latestEnvelope) {
+      for (const listener of this.stateListeners) {
+        listener(this.latestEnvelope);
+      }
     }
   }
 

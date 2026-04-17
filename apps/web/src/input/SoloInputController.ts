@@ -1,8 +1,9 @@
 import {
   SERVER_TICK_RATE,
-  type SessionSnapshot,
   type BuildType,
-  type GameSessionProvider
+  type GameSessionProvider,
+  type SessionCommand,
+  type SlotId
 } from "@snowbattle/shared";
 
 import { getNormalizedMovement, normalizeMovementKey } from "../game/soloMath";
@@ -17,6 +18,8 @@ const BUILD_KEY_TO_TYPE: Record<string, BuildType> = {
 export class SoloInputController {
   private connected = false;
   private flushInterval: number | null = null;
+  private lastSentInputSignature: string | null = null;
+  private nextInputSeq = 1;
   private pointerActive = false;
   private pointerClientX = 0;
   private pointerClientY = 0;
@@ -25,7 +28,8 @@ export class SoloInputController {
   constructor(
     private readonly target: HTMLElement,
     private readonly scene: SoloArenaScene,
-    private readonly provider: GameSessionProvider
+    private readonly provider: GameSessionProvider,
+    private readonly onCommand?: (command: SessionCommand) => void
   ) {}
 
   connect() {
@@ -57,6 +61,7 @@ export class SoloInputController {
     this.target.removeEventListener("pointerdown", this.handlePointerDown);
     this.target.removeEventListener("pointerleave", this.handlePointerLeave);
     this.target.removeEventListener("pointermove", this.handlePointerMove);
+
     if (this.flushInterval !== null) {
       window.clearInterval(this.flushInterval);
       this.flushInterval = null;
@@ -73,6 +78,7 @@ export class SoloInputController {
     if (movementKey) {
       event.preventDefault();
       this.pressedKeys.add(movementKey);
+      this.sendInputUpdate(true);
       return;
     }
 
@@ -89,9 +95,10 @@ export class SoloInputController {
       }
 
       event.preventDefault();
-      this.provider.send({
-        type: "build:select",
-        payload: { buildType }
+      this.dispatchCommand({
+        inputSeq: this.claimInputSeq(),
+        payload: { buildType },
+        type: "build:select"
       });
       return;
     }
@@ -103,7 +110,10 @@ export class SoloInputController {
       }
 
       event.preventDefault();
-      this.provider.send({ type: "build:cancel" });
+      this.dispatchCommand({
+        inputSeq: this.claimInputSeq(),
+        type: "build:cancel"
+      });
     }
   };
 
@@ -116,6 +126,7 @@ export class SoloInputController {
 
     event.preventDefault();
     this.pressedKeys.delete(movementKey);
+    this.sendInputUpdate(true);
   };
 
   private readonly handlePointerDown = (event: PointerEvent) => {
@@ -127,52 +138,96 @@ export class SoloInputController {
     this.pointerActive = true;
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
-    this.sendInputUpdate();
-    this.provider.send({ type: "action:primary" });
+    this.sendInputUpdate(true);
+    this.dispatchCommand({
+      inputSeq: this.claimInputSeq(),
+      type: "action:primary"
+    });
   };
 
   private readonly handlePointerLeave = () => {
+    if (!this.pointerActive) {
+      return;
+    }
+
     this.pointerActive = false;
+    this.sendInputUpdate(true);
   };
 
   private readonly handlePointerMove = (event: PointerEvent) => {
     this.pointerActive = true;
     this.pointerClientX = event.clientX;
     this.pointerClientY = event.clientY;
+    this.sendInputUpdate(true);
   };
 
-  private sendInputUpdate() {
+  private sendInputUpdate(force = false) {
     if (!this.connected) {
       return;
     }
 
     const movement = getNormalizedMovement(this.pressedKeys);
-    const orientedMovement = orientMovementForSnapshot(
-      movement,
-      this.provider.getLatestSnapshot()
-    );
+    const orientedMovement = orientMovementForSlot(movement, this.getLocalSlot());
     const worldPoint = this.pointerActive
       ? this.scene.screenPointToWorld(this.pointerClientX, this.pointerClientY)
       : null;
+    const nextPayload = {
+      aimX: worldPoint?.x ?? 0,
+      aimY: worldPoint?.z ?? 0,
+      moveX: orientedMovement.x,
+      moveY: orientedMovement.y,
+      pointerActive: worldPoint !== null
+    };
+    const nextSignature = JSON.stringify(nextPayload);
+    const shouldKeepAlive =
+      nextPayload.pointerActive ||
+      Math.abs(nextPayload.moveX) > 1e-6 ||
+      Math.abs(nextPayload.moveY) > 1e-6;
 
-    this.provider.send({
-      type: "input:update",
-      payload: {
-        aimX: worldPoint?.x ?? 0,
-        aimY: worldPoint?.z ?? 0,
-        moveX: orientedMovement.x,
-        moveY: orientedMovement.y,
-        pointerActive: worldPoint !== null
-      }
-    });
+    if (!force && !shouldKeepAlive && this.lastSentInputSignature === nextSignature) {
+      return;
+    }
+
+    if (force && this.lastSentInputSignature === nextSignature && !shouldKeepAlive) {
+      return;
+    }
+
+    const command: SessionCommand = {
+      inputSeq: this.claimInputSeq(),
+      payload: nextPayload,
+      sentAtClientTime: Date.now(),
+      type: "input:update"
+    };
+
+    this.lastSentInputSignature = nextSignature;
+    this.dispatchCommand(command);
+  }
+
+  private dispatchCommand(command: SessionCommand) {
+    this.onCommand?.(command);
+    this.provider.send(command);
+  }
+
+  private claimInputSeq() {
+    const nextSeq = this.nextInputSeq;
+    this.nextInputSeq += 1;
+    return nextSeq;
+  }
+
+  private getLocalSlot(): SlotId {
+    return (
+      this.provider.getSessionMeta()?.localSlot ??
+      this.provider.getLatestSnapshot()?.localPlayer.slot ??
+      "A"
+    );
   }
 }
 
-function orientMovementForSnapshot(
+function orientMovementForSlot(
   movement: { x: number; y: number },
-  snapshot: SessionSnapshot | null
+  localSlot: SlotId
 ) {
-  if (snapshot?.localPlayer.slot !== "B") {
+  if (localSlot !== "B") {
     return movement;
   }
 

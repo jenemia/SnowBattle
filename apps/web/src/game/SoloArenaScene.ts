@@ -77,10 +77,6 @@ export class SoloArenaScene {
 
   render(snapshot: SessionSnapshot) {
     this.latestSnapshot = snapshot;
-    this.playerRenderer.sync(snapshot);
-    this.projectileRenderer.sync(snapshot);
-    this.structureRenderer.sync(snapshot);
-    this.overlayRenderer.sync(snapshot);
   }
 
   screenPointToWorld(clientX: number, clientY: number) {
@@ -88,7 +84,16 @@ export class SoloArenaScene {
   }
 
   private renderFrame() {
-    this.cameraController.update(this.latestSnapshot, this.clock.getDelta());
+    const delta = this.clock.getDelta();
+
+    if (this.latestSnapshot) {
+      this.playerRenderer.sync(this.latestSnapshot);
+      this.projectileRenderer.sync(this.latestSnapshot);
+      this.structureRenderer.sync(this.latestSnapshot);
+      this.overlayRenderer.sync(this.latestSnapshot);
+    }
+
+    this.cameraController.update(this.latestSnapshot, delta);
 
     this.renderer.render(this.scene, this.cameraController.camera);
   }

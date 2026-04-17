@@ -10,6 +10,7 @@ import { getMultiplayerUiState } from "./multiplayerUiState";
 import { getProductionServerUrl, resolveServerUrl } from "../serverUrl";
 import {
   mountGameSession,
+  mountPredictedDuelSession,
   presentDuelHud,
   presentDuelSkillStrip,
   renderDuelSkillStrip,
@@ -339,7 +340,11 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
 
   syncCombatSurfaceState();
 
-  mountGameSession({
+  const mountSession = isBackendConfigured
+    ? mountPredictedDuelSession
+    : mountGameSession;
+
+  mountSession({
     autoConnect: false,
     onSnapshot: (snapshot) => {
       latestSnapshot = snapshot;
@@ -604,11 +609,20 @@ function createPreviewProvider(): GameSessionProvider {
   return {
     connect() {},
     disconnect() {},
+    getLatestStateEnvelope() {
+      return null;
+    },
     getLatestSnapshot() {
+      return null;
+    },
+    getSessionMeta() {
       return null;
     },
     send() {},
     subscribe() {
+      return () => {};
+    },
+    subscribeStateEnvelope() {
       return () => {};
     },
     subscribeEvent() {
