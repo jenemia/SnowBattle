@@ -166,6 +166,13 @@ npm run test:browser
 - `VITE_SERVER_URL`이 없으면 워크플로가 기본값 `wss://snowbattle.fly.dev`를 사용
 - production 빌드에서 주소가 비어 있으면 웹은 자동 연결 대신 백엔드 미설정 안내 상태로 남음
 
+## Vibe Jam 2026 제출 준비
+
+- production HTML에는 Vibe Jam 필수 위젯 스크립트가 포함되어 있습니다.
+- 제출 본편은 루트 `/` 멀티플레이 경험을 기준으로 유지합니다.
+- 루트 큐 패널에서는 `/solo`로 바로 이동할 수 있는 보조 진입 경로를 제공합니다.
+- 제출 증빙과 드라이런 체크리스트는 [vibe-jam-2026-submission.md](/Users/sean/Documents/SnowBattle/docs/vibe-jam-2026-submission.md)에서 관리합니다.
+
 ## 멀티플레이 서버에 대해
 
 GitHub Pages는 정적 파일만 호스팅하므로, 실제 1대1 온라인 매칭을 하려면 Colyseus 서버를 별도로 띄워야 합니다.
