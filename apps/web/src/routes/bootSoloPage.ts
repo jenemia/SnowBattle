@@ -369,6 +369,7 @@ export function bootSoloPage(root: HTMLDivElement) {
   }
 
   function refreshChrome() {
+    const queueing = isQueueingState(queueState, queueProvider);
     syncSurfaceVisibility();
 
     if (
@@ -384,7 +385,7 @@ export function bootSoloPage(root: HTMLDivElement) {
       return;
     }
 
-    ui.mode.textContent = "Solo sandbox";
+    ui.mode.textContent = queueing ? "Solo sandbox · Queueing" : "Solo sandbox";
     ui.roster.textContent = `${guestName} vs Bot`;
     ui.queueMeta.textContent = getQueueMetaText(queueState, backendConfig.isConfigured);
     ui.readout.textContent = "Booting local solo sandbox.";
@@ -394,6 +395,7 @@ export function bootSoloPage(root: HTMLDivElement) {
 
   function applySoloChrome(snapshot: SessionSnapshot) {
     const hud = presentSoloHud(snapshot);
+    const queueing = isQueueingState(queueState, queueProvider);
 
     renderSessionHud(
       {
@@ -407,8 +409,7 @@ export function bootSoloPage(root: HTMLDivElement) {
     );
     lastSoloHud = hud;
 
-    ui.mode.textContent =
-      shellState === "queue_searching" ? "Solo sandbox · Duel queue live" : "Solo sandbox";
+    ui.mode.textContent = queueing ? "Solo sandbox · Queueing" : "Solo sandbox";
     ui.roster.textContent = `${guestName} vs ${snapshot.opponentPlayer.guestName}`;
     ui.queueMeta.textContent = getQueueMetaText(queueState, backendConfig.isConfigured);
     ui.resultActions.hidden = true;
@@ -453,6 +454,7 @@ export function bootSoloPage(root: HTMLDivElement) {
     const duelVisible = shellState === "duel_active" || shellState === "duel_result";
     const resultOverlayState = getResultOverlayState();
     const resultOverlayVisible = resultOverlayState !== null;
+    const queueing = isQueueingState(queueState, queueProvider);
     const showTimer =
       shellState === "duel_active" &&
       latestDuelSnapshot?.match.lifecycle === "in_match";
@@ -463,10 +465,10 @@ export function bootSoloPage(root: HTMLDivElement) {
     ui.queueAgain.disabled = !backendConfig.isConfigured;
     ui.backToSolo.disabled = false;
     ui.resultRestart.disabled = latestSoloSnapshot?.hud.result === null;
-    ui.resultQueueToggle.disabled = !backendConfig.isConfigured || queueProvider !== null;
-    ui.resultQueueToggle.textContent = "Queue for duel";
-    ui.queueToggle.disabled = !backendConfig.isConfigured || queueProvider !== null;
-    ui.queueToggle.textContent = "Queue for duel";
+    ui.resultQueueToggle.disabled = !backendConfig.isConfigured || queueing;
+    ui.resultQueueToggle.textContent = queueing ? "Queueing" : "Queue for duel";
+    ui.queueToggle.disabled = !backendConfig.isConfigured || queueing;
+    ui.queueToggle.textContent = queueing ? "Queueing" : "Queue for duel";
     ui.timerBadge.hidden = !showTimer;
 
     if (!duelVisible) {
@@ -727,13 +729,13 @@ function getQueueMetaText(state: QueueStatusState, backendConfigured: boolean) {
     const riders = state.queuedPlayers === null ? "--" : `${state.queuedPlayers} riders`;
     const position = state.position === null ? "--" : `P${state.position}`;
     const roomId = state.roomId ?? "--";
-    return `Queue live · ${riders} · ${position} · Room ${roomId}`;
+    return `Queueing · ${riders} · ${position} · Room ${roomId}`;
   }
 
   if (state.statusCode === "match_found" || state.statusCode === "countdown") {
     const countdown =
       state.countdownMs === null ? "--" : `${Math.ceil(state.countdownMs / 1000)}s`;
-    return `Match found · ${state.opponentGuestName ?? "Opponent"} · ${countdown}`;
+    return `Queueing · Match found · ${state.opponentGuestName ?? "Opponent"} · ${countdown}`;
   }
 
   if (state.statusCode === "error") {
@@ -741,7 +743,11 @@ function getQueueMetaText(state: QueueStatusState, backendConfigured: boolean) {
   }
 
   if (state.statusCode === "connecting" || state.statusCode === "connected") {
-    return state.message;
+    return `Queueing · ${state.message}`;
+  }
+
+  if (state.statusCode === "requeue") {
+    return `Queueing · ${state.message}`;
   }
 
   return "Queue idle. Solo keeps running until you opt in.";
@@ -759,6 +765,24 @@ function getDuelMetaText(snapshot: SessionSnapshot, state: QueueStatusState) {
 
 function shellIsResolved(snapshot: SessionSnapshot) {
   return snapshot.hud.result !== null || snapshot.match.lifecycle === "finished";
+}
+
+function isQueueingState(
+  state: QueueStatusState,
+  provider: ColyseusSessionProvider | null
+) {
+  if (provider !== null) {
+    return true;
+  }
+
+  return (
+    state.statusCode === "connecting" ||
+    state.statusCode === "connected" ||
+    state.statusCode === "queued" ||
+    state.statusCode === "match_found" ||
+    state.statusCode === "countdown" ||
+    state.statusCode === "requeue"
+  );
 }
 
 function resolveGuestName(portalUsername: string | null) {
