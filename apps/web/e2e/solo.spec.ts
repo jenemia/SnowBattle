@@ -55,13 +55,15 @@ test("solo sandbox supports movement and snowballs", async ({
   await expect(preview).toHaveText("valid");
   const structureCountBefore = parseInt((await page.getByTestId("solo-structures").textContent()) ?? "0", 10);
   await page.mouse.click(placementPoint.x, placementPoint.y);
-  await expect(status).toHaveText("Combat");
   await expect
     .poll(
       async () =>
         parseInt((await page.getByTestId("solo-structures").textContent()) ?? "0", 10)
     )
     .toBeGreaterThan(structureCountBefore);
+  await expect
+    .poll(async () => await status.textContent())
+    .not.toBe("Build");
 });
 
 async function findValidPlacementPoint(

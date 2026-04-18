@@ -266,6 +266,13 @@ input {
   bottom: max(1.35rem, env(safe-area-inset-bottom));
 }
 
+.overlay-stack--bottom-right {
+  top: auto;
+  right: 1.35rem;
+  bottom: max(1.35rem, env(safe-area-inset-bottom));
+  left: auto;
+}
+
 .overlay-card {
   padding: 0.95rem 1rem;
   border: 1px solid var(--line);

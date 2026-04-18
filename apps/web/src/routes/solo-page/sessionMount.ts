@@ -1,6 +1,9 @@
 import type { GameSessionProvider, SessionSnapshot } from "@snowbattle/shared";
 
-import { SoloArenaScene } from "../../game/SoloArenaScene";
+import {
+  SoloArenaScene,
+  type SoloArenaSceneOptions
+} from "../../game/SoloArenaScene";
 import { SoloInputController } from "../../input/SoloInputController";
 import { LocalSoloProvider } from "../../providers/LocalSoloProvider";
 
@@ -8,6 +11,7 @@ export interface GameSessionMountOptions {
   autoConnect?: boolean;
   onSnapshot: (snapshot: SessionSnapshot) => void;
   provider: GameSessionProvider;
+  sceneOptions?: SoloArenaSceneOptions;
   viewport: HTMLElement;
 }
 
@@ -15,11 +19,12 @@ export function mountGameSession({
   autoConnect = true,
   onSnapshot,
   provider,
+  sceneOptions,
   viewport
 }: GameSessionMountOptions) {
   viewport.innerHTML = "";
 
-  const scene = new SoloArenaScene(viewport);
+  const scene = new SoloArenaScene(viewport, sceneOptions);
   const input = new SoloInputController(viewport, scene, provider);
   const unsubscribe = provider.subscribe((snapshot) => {
     scene.render(snapshot);
@@ -48,6 +53,12 @@ export function mountSoloSession(
   return mountGameSession({
     onSnapshot,
     provider: new LocalSoloProvider(),
+    sceneOptions: {
+      portals: {
+        showExitPortal: true,
+        showReturnPortal: false
+      }
+    },
     viewport
   });
 }

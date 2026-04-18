@@ -5,11 +5,19 @@ import type { SessionSnapshot } from "@snowbattle/shared";
 import {
   buildSoloEnvironment,
   SoloOverlayRenderer,
+  SoloPortalRenderer,
   SoloPlayerRenderer,
   SoloProjectileRenderer,
   SoloSceneCameraController,
   SoloStructureRenderer
 } from "./solo-scene";
+
+export interface SoloArenaSceneOptions {
+  portals?: {
+    showExitPortal: boolean;
+    showReturnPortal: boolean;
+  };
+}
 
 export class SoloArenaScene {
   private readonly renderer: THREE.WebGLRenderer;
@@ -20,11 +28,15 @@ export class SoloArenaScene {
   private readonly projectileRenderer: SoloProjectileRenderer;
   private readonly structureRenderer: SoloStructureRenderer;
   private readonly overlayRenderer: SoloOverlayRenderer;
+  private readonly portalRenderer: SoloPortalRenderer;
   private readonly resizeObserver: ResizeObserver | null;
   private latestSnapshot: SessionSnapshot | null = null;
   private running = false;
 
-  constructor(private readonly mount: HTMLElement) {
+  constructor(
+    private readonly mount: HTMLElement,
+    options: SoloArenaSceneOptions = {}
+  ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
@@ -35,6 +47,10 @@ export class SoloArenaScene {
     this.projectileRenderer = new SoloProjectileRenderer(this.scene);
     this.structureRenderer = new SoloStructureRenderer(this.scene);
     this.overlayRenderer = new SoloOverlayRenderer(this.scene);
+    this.portalRenderer = new SoloPortalRenderer(this.scene, {
+      showExitPortal: options.portals?.showExitPortal ?? false,
+      showReturnPortal: options.portals?.showReturnPortal ?? false
+    });
 
     this.resizeObserver =
       typeof ResizeObserver === "undefined"
@@ -93,6 +109,7 @@ export class SoloArenaScene {
       this.overlayRenderer.sync(this.latestSnapshot);
     }
 
+    this.portalRenderer.animate(delta);
     this.cameraController.update(this.latestSnapshot, delta);
 
     this.renderer.render(this.scene, this.cameraController.camera);

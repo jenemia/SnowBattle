@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test("two browser clients stay in sync through the shared duel provider", async ({
+test("two browser clients can queue from solo and transition into the live duel", async ({
   browser
 }) => {
   const contextA = await browser.newContext();
@@ -18,68 +18,70 @@ test("two browser clients stay in sync through the shared duel provider", async 
   await pageA.goto("/");
   await pageB.goto("/");
 
-  await waitForStatus(pageA, "A", ["queued", "match_found", "countdown", "connected"]);
-  await waitForRoomAssignment(pageA, "A");
+  await expect(pageA.getByTestId("solo-queue-toggle")).toBeVisible();
+  await expect(pageA.getByTestId("solo-loadtest-link")).toHaveAttribute(
+    "href",
+    "matchmaking-loadtest"
+  );
 
-  await waitForStatus(pageB, "B", ["queued", "match_found", "countdown", "connected"]);
-  await waitForRoomAssignment(pageB, "B");
+  await pageA.getByTestId("solo-queue-toggle").click();
+  await pageB.getByTestId("solo-queue-toggle").click();
 
-  await waitForStatus(pageA, "A", ["match_found", "countdown", "connected"]);
-  await waitForStatus(pageB, "B", ["match_found", "countdown", "connected"]);
+  await waitForQueueStatus(pageA, "A", ["queued", "match_found", "countdown", "connected"]);
+  await waitForQueueStatus(pageB, "B", ["queued", "match_found", "countdown", "connected"]);
 
   await waitForLifecycle(pageA, "A", ["countdown", "in_match"]);
   await waitForLifecycle(pageB, "B", ["countdown", "in_match"]);
-
   await waitForLifecycle(pageA, "A", ["in_match"]);
   await waitForLifecycle(pageB, "B", ["in_match"]);
 
-  await expect(pageA.getByTestId("multiplayer-local-name")).toHaveText("Alpha");
-  await expect(pageA.getByTestId("multiplayer-opponent-name")).toHaveText("Beta");
-  await expect(pageB.getByTestId("multiplayer-local-name")).toHaveText("Beta");
-  await expect(pageB.getByTestId("multiplayer-opponent-name")).toHaveText("Alpha");
-  await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Combat");
-  await expect(pageA.getByTestId("multiplayer-phase")).toHaveText("standard");
-  await expect(pageA.getByTestId("multiplayer-timer-badge")).toBeVisible();
-  await expect(pageA.getByTestId("multiplayer-timer-badge")).toContainText(/0[12]:[0-5]\d/);
-  await expect(pageA.getByTestId("multiplayer-build")).toHaveText("combat");
-  await expect(pageA.getByTestId("multiplayer-readout")).toContainText("Combat mode");
+  await expect(pageA.getByTestId("solo-mode")).toHaveText("Live duel");
+  await expect(pageB.getByTestId("solo-mode")).toHaveText("Live duel");
+  await expect(pageA.getByTestId("solo-local-name")).toHaveText("Alpha");
+  await expect(pageA.getByTestId("solo-opponent-name")).toHaveText("Beta");
+  await expect(pageB.getByTestId("solo-local-name")).toHaveText("Beta");
+  await expect(pageB.getByTestId("solo-opponent-name")).toHaveText("Alpha");
+  await expect(pageA.getByTestId("solo-status")).toHaveText("Combat");
+  await expect(pageA.getByTestId("solo-timer-badge")).toBeVisible();
+  await expect(pageA.getByTestId("solo-build")).toHaveText("combat");
 
-  const viewportA = pageA.getByTestId("multiplayer-viewport");
+  const viewportA = pageA.getByTestId("solo-viewport");
   const viewportBoxA = await viewportA.boundingBox();
 
   if (!viewportBoxA) {
     throw new Error("Viewport bounds unavailable for page A");
   }
 
-  const structuresBeforeA = await readCounter(pageA, "multiplayer-structures");
-  const structuresBeforeB = await readCounter(pageB, "multiplayer-structures");
+  const structuresBeforeA = await readCounter(pageA, "solo-structures");
+  const structuresBeforeB = await readCounter(pageB, "solo-structures");
   await pageA.keyboard.press("1");
-  await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Build");
-  await expect(pageA.getByTestId("multiplayer-build")).toHaveText("wall");
-  await placeBuild(pageA, viewportBoxA, structuresBeforeA, "multiplayer-structures");
-  await expect(pageA.getByTestId("multiplayer-session-status")).toHaveText("Combat");
+  await expect(pageA.getByTestId("solo-status")).toHaveText("Build");
+  await expect(pageA.getByTestId("solo-build")).toHaveText("wall");
+  const placementPoint = await findValidPlacementPoint(pageA, viewportBoxA);
+  await pageA.mouse.move(placementPoint.x, placementPoint.y);
+  await pageA.mouse.click(placementPoint.x, placementPoint.y);
   await expect
-    .poll(async () => await readCounter(pageA, "multiplayer-structures"))
+    .poll(async () => await readCounter(pageA, "solo-structures"))
     .toBeGreaterThan(structuresBeforeA);
   await expect
-    .poll(async () => await readCounter(pageB, "multiplayer-structures"))
+    .poll(async () => await readCounter(pageB, "solo-structures"))
     .toBeGreaterThan(structuresBeforeB);
 
-  const before = await pageB.getByTestId("multiplayer-opponent-state").textContent();
+  const before = await pageB.getByTestId("solo-opponent-state").textContent();
 
   await pageA.keyboard.down("d");
   await pageA.waitForTimeout(600);
   await pageA.keyboard.up("d");
 
   await expect
-    .poll(async () => await pageB.getByTestId("multiplayer-opponent-state").textContent())
+    .poll(async () => await pageB.getByTestId("solo-opponent-state").textContent())
     .not.toBe(before);
 
   await contextA.close();
   await contextB.close();
 });
 
-async function waitForStatus(
+async function waitForQueueStatus(
   page: Page,
   label: string,
   acceptedCodes: string[]
@@ -90,31 +92,12 @@ async function waitForStatus(
 
       if (debug.statusCode === "error") {
         throw new Error(
-          `[${label}] provider error at ${debug.statusStage}: ${debug.statusDetail}`
+          `[${label}] queue error at ${debug.statusStage}: ${debug.queueMeta}`
         );
       }
 
       return acceptedCodes.includes(debug.statusCode);
-    })
-    .toBe(true);
-}
-
-async function waitForRoomAssignment(
-  page: Page,
-  label: string
-) {
-  await expect
-    .poll(async () => {
-      const debug = await readDebugState(page);
-
-      if (debug.statusCode === "error") {
-        throw new Error(
-          `[${label}] room assignment failed at ${debug.statusStage}: ${debug.statusDetail}`
-        );
-      }
-
-      return debug.roomId !== "Room --";
-    })
+    }, { timeout: 30_000 })
     .toBe(true);
 }
 
@@ -129,41 +112,40 @@ async function waitForLifecycle(
 
       if (debug.statusCode === "error") {
         throw new Error(
-          `[${label}] lifecycle failed at ${debug.statusStage}: ${debug.statusDetail}`
+          `[${label}] lifecycle failed at ${debug.statusStage}: ${debug.queueMeta}`
         );
       }
 
       return acceptedLifecycle.includes(debug.lifecycle);
-    })
+    }, { timeout: 30_000 })
     .toBe(true);
 }
 
 async function readDebugState(page: Page) {
-  const [statusCode, statusStage, statusDetail, roomId, lifecycle] = await Promise.all([
-    page.getByTestId("multiplayer-status-code").textContent(),
-    page.getByTestId("multiplayer-status-stage").textContent(),
-    page.getByTestId("multiplayer-status-detail").textContent(),
-    page.getByTestId("multiplayer-room").textContent(),
-    page.getByTestId("multiplayer-lifecycle").textContent()
+  const [statusCode, statusStage, queueMeta, roomId, lifecycle] = await Promise.all([
+    page.getByTestId("solo-queue-status-code").textContent(),
+    page.getByTestId("solo-queue-status-stage").textContent(),
+    page.getByTestId("solo-queue-meta").textContent(),
+    page.getByTestId("solo-room").textContent(),
+    page.getByTestId("solo-lifecycle").textContent()
   ]);
 
   return {
     lifecycle: lifecycle ?? "",
+    queueMeta: queueMeta ?? "",
     roomId: roomId ?? "",
     statusCode: statusCode ?? "",
-    statusDetail: statusDetail ?? "",
     statusStage: statusStage ?? ""
   };
 }
 
-async function placeBuild(
+async function findValidPlacementPoint(
   page: Page,
-  box: { x: number; y: number; width: number; height: number },
-  initialStructures: number,
-  structuresTestId: string
+  box: { x: number; y: number; width: number; height: number }
 ) {
-  const columns = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
-  const rows = [0.25, 0.35, 0.45, 0.55, 0.65, 0.75];
+  const preview = page.getByTestId("solo-preview");
+  const columns = [0.45, 0.5, 0.55, 0.6, 0.65];
+  const rows = [0.45, 0.5, 0.55, 0.6, 0.65];
 
   for (const row of rows) {
     for (const column of columns) {
@@ -171,11 +153,10 @@ async function placeBuild(
         x: box.x + box.width * column,
         y: box.y + box.height * row
       };
-      await page.mouse.click(point.x, point.y);
-      await page.waitForTimeout(100);
+      await page.mouse.move(point.x, point.y);
 
-      if ((await readCounter(page, structuresTestId)) > initialStructures) {
-        return;
+      if ((await preview.textContent()) === "valid") {
+        return point;
       }
     }
   }

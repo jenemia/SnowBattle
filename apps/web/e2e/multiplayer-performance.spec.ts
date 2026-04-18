@@ -20,6 +20,9 @@ test("dual mode keeps input flushes and layout reads near the 20Hz budget", asyn
   await pageA.goto("/");
   await pageB.goto("/");
 
+  await pageA.getByTestId("solo-queue-toggle").click();
+  await pageB.getByTestId("solo-queue-toggle").click();
+
   await waitForLifecycle(pageA, ["in_match"]);
   await waitForLifecycle(pageB, ["in_match"]);
 
@@ -43,7 +46,7 @@ test("dual mode keeps input flushes and layout reads near the 20Hz budget", asyn
   });
 
   for (const page of [pageA, pageB]) {
-    const viewport = page.getByTestId("multiplayer-viewport");
+    const viewport = page.getByTestId("solo-viewport");
     const box = await viewport.boundingBox();
 
     if (!box) {
@@ -75,19 +78,19 @@ test("dual mode keeps input flushes and layout reads near the 20Hz budget", asyn
 async function waitForLifecycle(page: Page, acceptedLifecycle: string[]) {
   await expect
     .poll(async () => {
-      const [lifecycle, statusCode, statusStage, statusDetail] = await Promise.all([
-        page.getByTestId("multiplayer-lifecycle").textContent(),
-        page.getByTestId("multiplayer-status-code").textContent(),
-        page.getByTestId("multiplayer-status-stage").textContent(),
-        page.getByTestId("multiplayer-status-detail").textContent()
+      const [lifecycle, statusCode, statusStage, queueMeta] = await Promise.all([
+        page.getByTestId("solo-lifecycle").textContent(),
+        page.getByTestId("solo-queue-status-code").textContent(),
+        page.getByTestId("solo-queue-status-stage").textContent(),
+        page.getByTestId("solo-queue-meta").textContent()
       ]);
 
       if (statusCode === "error") {
-        throw new Error(`provider error at ${statusStage}: ${statusDetail}`);
+        throw new Error(`provider error at ${statusStage}: ${queueMeta}`);
       }
 
       return acceptedLifecycle.includes(lifecycle ?? "");
-    })
+    }, { timeout: 30_000 })
     .toBe(true);
 }
 

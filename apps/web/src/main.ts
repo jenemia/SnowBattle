@@ -1,7 +1,6 @@
 import "./styles.css";
 
 import { bootMatchmakingLoadtestPage } from "./routes/bootMatchmakingLoadtestPage";
-import { bootMultiplayerPage } from "./routes/bootMultiplayerPage";
 import { bootSoloPage } from "./routes/bootSoloPage";
 import { initSentry } from "./sentry";
 
@@ -15,12 +14,10 @@ if (!root) {
 
 const route = resolveRoute(window.location.pathname);
 
-if (route === "solo") {
+if (route === "solo" || route === "home") {
   bootSoloPage(root);
 } else if (route === "matchmaking-loadtest") {
   bootMatchmakingLoadtestPage(root);
-} else {
-  bootMultiplayerPage(root);
 }
 
 function resolveRoute(pathname: string) {
