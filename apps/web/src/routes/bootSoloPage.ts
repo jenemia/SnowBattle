@@ -487,6 +487,8 @@ export function bootSoloPage(root: HTMLDivElement) {
     if (!state) {
       ui.resultOverlay.hidden = true;
       ui.result.hidden = false;
+      ui.resultSoloActions.hidden = true;
+      ui.resultDuelActions.hidden = true;
       ui.resultRestart.hidden = true;
       ui.resultQueueToggle.hidden = true;
       ui.queueAgain.hidden = true;
@@ -497,6 +499,8 @@ export function bootSoloPage(root: HTMLDivElement) {
     const viewModel = getResultOverlayViewModel(state.snapshot, state.mode);
     ui.resultOverlay.hidden = false;
     ui.result.hidden = true;
+    ui.resultSoloActions.hidden = state.mode !== "solo";
+    ui.resultDuelActions.hidden = state.mode !== "duel";
     ui.resultRestart.hidden = state.mode !== "solo";
     ui.resultQueueToggle.hidden = state.mode !== "solo";
     ui.queueAgain.hidden = state.mode !== "duel";
@@ -579,6 +583,8 @@ export function bootSoloPage(root: HTMLDivElement) {
 
     ui.resultOverlay.hidden = true;
     ui.result.hidden = true;
+    ui.resultSoloActions.hidden = true;
+    ui.resultDuelActions.hidden = true;
     ui.resultRestart.hidden = true;
     ui.resultQueueToggle.hidden = true;
     ui.queueAgain.hidden = true;

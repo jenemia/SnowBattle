@@ -194,7 +194,11 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
               id="solo-result-overlay-readout"
               data-testid="solo-result-overlay-readout"
             ></p>
-            <div class="hero-actions result-overlay-actions">
+            <div
+              class="hero-actions result-overlay-actions"
+              id="solo-result-solo-actions"
+              hidden
+            >
               <button
                 class="primary-button"
                 id="solo-result-restart"
@@ -211,6 +215,12 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
               >
                 Queue for duel
               </button>
+            </div>
+            <div
+              class="hero-actions result-overlay-actions"
+              id="solo-result-duel-actions"
+              hidden
+            >
               <button
                 class="secondary-link"
                 id="solo-queue-again"
