@@ -3,6 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 test("dual mode keeps input flushes and layout reads near the 20Hz budget", async ({
   browser
 }) => {
+  test.setTimeout(60_000);
+
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();

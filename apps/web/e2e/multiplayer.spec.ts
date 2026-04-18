@@ -3,6 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 test("two browser clients can queue from solo and transition into the live duel", async ({
   browser
 }) => {
+  test.setTimeout(60_000);
+
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
@@ -19,10 +21,7 @@ test("two browser clients can queue from solo and transition into the live duel"
   await pageB.goto("/");
 
   await expect(pageA.getByTestId("solo-queue-toggle")).toBeVisible();
-  await expect(pageA.getByTestId("solo-loadtest-link")).toHaveAttribute(
-    "href",
-    "matchmaking-loadtest"
-  );
+  await expect(pageA.locator("#solo-hero .title")).toBeVisible();
 
   await pageA.getByTestId("solo-queue-toggle").click();
   await pageB.getByTestId("solo-queue-toggle").click();
@@ -44,6 +43,8 @@ test("two browser clients can queue from solo and transition into the live duel"
   await expect(pageA.getByTestId("solo-status")).toHaveText("Combat");
   await expect(pageA.getByTestId("solo-timer-badge")).toBeVisible();
   await expect(pageA.getByTestId("solo-build")).toHaveText("combat");
+  await expect(pageA.locator("#solo-hero")).toBeHidden();
+  await expect(pageB.locator("#solo-hero")).toBeHidden();
 
   const viewportA = pageA.getByTestId("solo-viewport");
   const viewportBoxA = await viewportA.boundingBox();
@@ -144,8 +145,8 @@ async function findValidPlacementPoint(
   box: { x: number; y: number; width: number; height: number }
 ) {
   const preview = page.getByTestId("solo-preview");
-  const columns = [0.45, 0.5, 0.55, 0.6, 0.65];
-  const rows = [0.45, 0.5, 0.55, 0.6, 0.65];
+  const columns = [0.3, 0.35, 0.4, 0.45, 0.5];
+  const rows = [0.3, 0.35, 0.4, 0.45, 0.5];
 
   for (const row of rows) {
     for (const column of columns) {

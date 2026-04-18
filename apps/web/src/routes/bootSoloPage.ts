@@ -130,6 +130,7 @@ export function bootSoloPage(root: HTMLDivElement) {
 
         if (shellState === "solo_active" || shellState === "queue_searching") {
           applySoloChrome(snapshot);
+          syncQueueControls();
         }
       },
       provider,
@@ -282,6 +283,7 @@ export function bootSoloPage(root: HTMLDivElement) {
         latestDuelSnapshot = snapshot;
         updateMetricNodes(snapshot);
         applyDuelChrome(snapshot);
+        syncQueueControls();
 
         if (snapshot.hud.result !== null || snapshot.match.lifecycle === "finished") {
           shellState = "duel_result";
@@ -345,6 +347,8 @@ export function bootSoloPage(root: HTMLDivElement) {
   }
 
   function refreshChrome() {
+    syncSurfaceVisibility();
+
     if (
       (shellState === "duel_active" || shellState === "duel_result") &&
       latestDuelSnapshot
@@ -392,6 +396,7 @@ export function bootSoloPage(root: HTMLDivElement) {
       : "";
     setTextIfChanged(ui.queueStatusCode, queueState.statusCode);
     setTextIfChanged(ui.queueStatusStage, queueState.statusStage);
+    syncSurfaceVisibility();
   }
 
   function applyDuelChrome(snapshot: SessionSnapshot) {
@@ -417,16 +422,21 @@ export function bootSoloPage(root: HTMLDivElement) {
     ui.portalCopy.hidden = true;
     setTextIfChanged(ui.queueStatusCode, queueState.statusCode);
     setTextIfChanged(ui.queueStatusStage, queueState.statusStage);
+    syncSurfaceVisibility();
   }
 
   function syncQueueControls() {
     const duelVisible = shellState === "duel_active" || shellState === "duel_result";
+    const showTimer =
+      shellState === "duel_active" &&
+      latestDuelSnapshot?.match.lifecycle === "in_match";
 
     ui.queueToggle.hidden = duelVisible;
     ui.reset.hidden = duelVisible;
     ui.resultActions.hidden = shellState !== "duel_result";
     ui.queueAgain.disabled = !backendConfig.isConfigured;
     ui.backToSolo.disabled = false;
+    ui.timerBadge.hidden = !showTimer;
 
     if (!duelVisible) {
       ui.reset.disabled = latestSoloSnapshot?.hud.result === null;
@@ -435,6 +445,10 @@ export function bootSoloPage(root: HTMLDivElement) {
         ? "Cancel duel queue"
         : "Queue for duel";
     }
+  }
+
+  function syncSurfaceVisibility() {
+    ui.hero.hidden = shellState === "duel_active" || shellState === "duel_result";
   }
 
   function updateMetricNodes(snapshot: SessionSnapshot) {

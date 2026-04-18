@@ -401,6 +401,10 @@ input {
   cursor: default;
 }
 
+.status-card > .primary-button {
+  width: 100%;
+}
+
 .hint {
   margin-top: 0.8rem;
   color: var(--muted);

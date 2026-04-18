@@ -15,8 +15,7 @@ test("solo sandbox supports movement and snowballs", async ({
 
   await expect(viewport).toBeVisible();
   await expect(status).toHaveText("Combat");
-  await expect(timerBadge).toBeVisible();
-  await expect(timerBadge).toContainText(/0[12]:[0-5]\d/);
+  await expect(timerBadge).toBeHidden();
 
   const box = await viewport.boundingBox();
 
@@ -71,8 +70,8 @@ async function findValidPlacementPoint(
   box: { x: number; y: number; width: number; height: number }
 ) {
   const preview = page.getByTestId("solo-preview");
-  const columns = [0.45, 0.5, 0.55, 0.6, 0.65];
-  const rows = [0.45, 0.5, 0.55, 0.6, 0.65];
+  const columns = [0.3, 0.35, 0.4, 0.45, 0.5];
+  const rows = [0.3, 0.35, 0.4, 0.45, 0.5];
 
   for (const row of rows) {
     for (const column of columns) {

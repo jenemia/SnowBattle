@@ -33,6 +33,7 @@ export interface SoloPageElements {
   build: HTMLElement;
   cooldown: HTMLElement;
   cursor: HTMLElement;
+  hero: HTMLElement;
   hp: HTMLElement;
   lifecycle: HTMLElement;
   localName: HTMLElement;
@@ -115,8 +116,7 @@ export function renderHeroActions(actions: HeroAction[]) {
 export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
   root.innerHTML = `
     <div class="shell shell--solo" data-testid="solo-shell">
-      <section class="hero hero--compact hero--solo">
-        <div class="eyebrow">Solo-First Hybrid Shell</div>
+      <section class="hero hero--compact hero--solo" id="solo-hero">
         <h1 class="title">Blizzard<span>Brawl</span></h1>
         <p class="lede">
           Drop into a local solo arena immediately, keep practicing while duel queue runs in the
@@ -124,20 +124,10 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
         </p>
         ${renderHeroActions([
           {
-            id: "solo-queue-toggle",
-            label: "Queue for duel",
-            testId: "solo-queue-toggle"
-          },
-          {
             disabled: true,
             id: "solo-reset",
             label: "Restart round",
             testId: "solo-reset"
-          },
-          {
-            href: "matchmaking-loadtest",
-            label: "Open load test",
-            testId: "solo-loadtest-link"
           }
         ])}
       </section>
@@ -147,6 +137,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
           class="match-timer-badge"
           id="solo-timer-badge"
           data-testid="solo-timer-badge"
+          hidden
         >
           02:00
         </div>
@@ -169,6 +160,14 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
             <div class="status-copy" id="solo-readout" data-testid="solo-readout">
               Combat mode. Aim with the cursor and click to throw.
             </div>
+            <button
+              class="primary-button"
+              id="solo-queue-toggle"
+              type="button"
+              data-testid="solo-queue-toggle"
+            >
+              Queue for duel
+            </button>
             <div class="result" id="solo-result" data-testid="solo-result"></div>
             <div class="portal-copy" id="solo-portal-copy" data-testid="solo-portal-copy" hidden></div>
             <div class="hero-actions" id="solo-result-actions" hidden>
@@ -227,6 +226,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     build: requireElement<HTMLElement>(root, "#solo-build"),
     cooldown: requireElement<HTMLElement>(root, "#solo-cooldown"),
     cursor: requireElement<HTMLElement>(root, "#solo-cursor"),
+    hero: requireElement<HTMLElement>(root, "#solo-hero"),
     hp: requireElement<HTMLElement>(root, "#solo-hp"),
     lifecycle: requireElement<HTMLElement>(root, "#solo-lifecycle"),
     localName: requireElement<HTMLElement>(root, "#solo-local-name"),
