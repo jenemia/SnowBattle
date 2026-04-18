@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+import { createTextureUrlModifier } from "./gltfTextureUrl";
+
 type HolidayStructureAssetKey =
   | "lantern"
   | "reindeer"
@@ -202,10 +204,7 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]) {
 
 function createAssetLoader(textureUrls: ReadonlyMap<string, string>) {
   const manager = new THREE.LoadingManager();
-  manager.setURLModifier((url) => {
-    const normalized = url.replace(/^(\.\/)+/, "");
-    return textureUrls.get(normalized) ?? url;
-  });
+  manager.setURLModifier(createTextureUrlModifier(textureUrls));
 
   return new GLTFLoader(manager);
 }

@@ -3,6 +3,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import type { SlotId } from "@snowbattle/shared";
 
+import { createTextureUrlModifier } from "./gltfTextureUrl";
+
 export const BLOCKY_CHARACTER_IDS = [
   "character-a",
   "character-b",
@@ -169,11 +171,11 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]) {
 function createCharacterLoader(textureUrl: string, characterId: BlockyCharacterId) {
   const manager = new THREE.LoadingManager();
   const textureFilename = `texture-${characterId.slice(-1)}.png`;
-
-  manager.setURLModifier((url) => {
-    const normalized = url.replace(/^(\.\/)+/, "");
-    return normalized === `Textures/${textureFilename}` ? textureUrl : url;
-  });
+  manager.setURLModifier(
+    createTextureUrlModifier(
+      new Map<string, string>([[`Textures/${textureFilename}`, textureUrl]])
+    )
+  );
 
   return new GLTFLoader(manager);
 }
