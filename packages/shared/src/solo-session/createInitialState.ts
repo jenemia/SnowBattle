@@ -33,7 +33,9 @@ function createPlayer(
     x,
     z,
     aimX: x,
-    aimZ: z - 1
+    aimZ: z - 1,
+    botRepositionTargetX: null,
+    botRepositionTargetZ: null
   };
 }
 

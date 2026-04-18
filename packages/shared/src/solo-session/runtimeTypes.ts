@@ -11,6 +11,8 @@ import type {
 export interface PlayerRuntimeState extends SessionPlayerSnapshot {
   aimX: number;
   aimZ: number;
+  botRepositionTargetX?: number | null;
+  botRepositionTargetZ?: number | null;
   fireCooldownRemaining: number;
   lastHitAt: number | null;
   moveX: number;
