@@ -29,10 +29,16 @@ test("two browser clients can queue from solo and transition into the live duel"
   await waitForQueueStatus(pageA, "A", ["queued", "match_found", "countdown", "connected"]);
   await waitForQueueStatus(pageB, "B", ["queued", "match_found", "countdown", "connected"]);
 
-  await waitForLifecycle(pageA, "A", ["countdown", "in_match"]);
-  await waitForLifecycle(pageB, "B", ["countdown", "in_match"]);
+  await waitForLifecycle(pageA, "A", ["countdown"]);
+  await waitForLifecycle(pageB, "B", ["countdown"]);
+  await expect(pageA.getByTestId("solo-countdown-overlay")).toBeVisible();
+  await expect(pageB.getByTestId("solo-countdown-overlay")).toBeVisible();
+  await expect(pageA.getByTestId("solo-countdown-value")).toHaveText(/[123]/);
+  await expect(pageB.getByTestId("solo-countdown-value")).toHaveText(/[123]/);
   await waitForLifecycle(pageA, "A", ["in_match"]);
   await waitForLifecycle(pageB, "B", ["in_match"]);
+  await expect(pageA.getByTestId("solo-countdown-overlay")).toBeHidden();
+  await expect(pageB.getByTestId("solo-countdown-overlay")).toBeHidden();
 
   await expect(pageA.getByTestId("solo-mode")).toHaveText("Live duel");
   await expect(pageB.getByTestId("solo-mode")).toHaveText("Live duel");

@@ -53,6 +53,10 @@ export interface SoloPageElements {
   queueStatusStage: HTMLElement;
   queueToggle: HTMLButtonElement;
   readout: HTMLElement;
+  resultDuelActions: HTMLElement;
+  countdownOverlay: HTMLElement;
+  countdownValue: HTMLElement;
+  resultSoloActions: HTMLElement;
   resultQueueToggle: HTMLButtonElement;
   resultOverlay: HTMLElement;
   resultOverlayReadout: HTMLElement;
@@ -146,6 +150,23 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
           hidden
         >
           02:00
+        </div>
+        <div
+          class="countdown-overlay"
+          id="solo-countdown-overlay"
+          data-testid="solo-countdown-overlay"
+          hidden
+        >
+          <section class="overlay-card countdown-overlay-card">
+            <div class="overlay-card-title">Duel starts in</div>
+            <div
+              class="countdown-overlay-value"
+              id="solo-countdown-value"
+              data-testid="solo-countdown-value"
+            >
+              3
+            </div>
+          </section>
         </div>
         <div
           class="result-overlay"
@@ -297,6 +318,10 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     queueStatusStage: requireElement<HTMLElement>(root, "#solo-queue-status-stage"),
     queueToggle: requireElement<HTMLButtonElement>(root, "#solo-queue-toggle"),
     readout: requireElement<HTMLElement>(root, "#solo-readout"),
+    resultDuelActions: requireElement<HTMLElement>(root, "#solo-result-duel-actions"),
+    countdownOverlay: requireElement<HTMLElement>(root, "#solo-countdown-overlay"),
+    countdownValue: requireElement<HTMLElement>(root, "#solo-countdown-value"),
+    resultSoloActions: requireElement<HTMLElement>(root, "#solo-result-solo-actions"),
     resultQueueToggle: requireElement<HTMLButtonElement>(root, "#solo-result-queue-toggle"),
     resultOverlay: requireElement<HTMLElement>(root, "#solo-result-overlay"),
     resultOverlayReadout: requireElement<HTMLElement>(root, "#solo-result-overlay-readout"),

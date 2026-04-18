@@ -473,6 +473,7 @@ export function bootSoloPage(root: HTMLDivElement) {
       ui.reset.disabled = latestSoloSnapshot?.hud.result === null;
     }
 
+    syncCountdownOverlay(resultOverlayVisible);
     syncResultOverlay(resultOverlayState);
   }
 
@@ -503,6 +504,26 @@ export function bootSoloPage(root: HTMLDivElement) {
     setTextIfChanged(ui.resultOverlayTitle, viewModel.title);
     setTextIfChanged(ui.resultOverlayReason, viewModel.reason);
     setTextIfChanged(ui.resultOverlayReadout, viewModel.readout);
+  }
+
+  function syncCountdownOverlay(resultOverlayVisible: boolean) {
+    const snapshot = latestDuelSnapshot;
+    const countdownActive =
+      !resultOverlayVisible &&
+      shellState === "duel_active" &&
+      snapshot?.match.lifecycle === "countdown";
+
+    ui.countdownOverlay.hidden = !countdownActive;
+
+    if (!countdownActive || !snapshot) {
+      return;
+    }
+
+    const countdownSeconds = Math.max(
+      1,
+      Math.ceil(snapshot.match.countdownRemainingMs / 1000)
+    );
+    setTextIfChanged(ui.countdownValue, String(countdownSeconds));
   }
 
   function getResultOverlayState():

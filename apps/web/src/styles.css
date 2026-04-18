@@ -230,6 +230,37 @@ input {
   margin-top: 0;
 }
 
+.countdown-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.countdown-overlay[hidden] {
+  display: none;
+}
+
+.countdown-overlay-card {
+  width: min(14rem, calc(100% - 2rem));
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.1rem 1.2rem;
+  text-align: center;
+  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.28);
+}
+
+.countdown-overlay-value {
+  font-family: "Oxanium", sans-serif;
+  font-size: clamp(3.2rem, 10vw, 5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  color: var(--accent-strong);
+}
+
 .session-card {
   position: absolute;
   z-index: 3;
