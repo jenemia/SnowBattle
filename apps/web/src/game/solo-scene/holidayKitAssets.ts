@@ -21,6 +21,16 @@ interface HolidayAssetDefinition {
   url: string;
 }
 
+const HOLIDAY_TEXTURE_URLS = new Map<string, string>([
+  [
+    "Textures/colormap.png",
+    new URL(
+      "../../resources/kenney_holiday-kit/Models/GLB format/Textures/colormap.png",
+      import.meta.url
+    ).href
+  ]
+]);
+
 export interface HolidayAssetInstanceOptions {
   groundClearance: number;
   targetDepth?: number;
@@ -28,7 +38,6 @@ export interface HolidayAssetInstanceOptions {
   targetWidth?: number;
 }
 
-const loader = new GLTFLoader();
 const assetTemplateCache = new Map<HolidayAssetKey, Promise<THREE.Object3D>>();
 
 const HOLIDAY_ASSET_DEFINITIONS: Record<HolidayAssetKey, HolidayAssetDefinition> = {
@@ -137,7 +146,7 @@ function loadHolidayAssetTemplate(key: HolidayAssetKey) {
   }
 
   const definition = HOLIDAY_ASSET_DEFINITIONS[key];
-  const promise = loader
+  const promise = createAssetLoader(HOLIDAY_TEXTURE_URLS)
     .loadAsync(definition.url)
     .then((gltf) => prepareHolidayAssetTemplate(gltf.scene))
     .catch(() => prepareHolidayAssetTemplate(definition.fallbackFactory()));
@@ -189,6 +198,16 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]) {
   }
 
   return material.clone();
+}
+
+function createAssetLoader(textureUrls: ReadonlyMap<string, string>) {
+  const manager = new THREE.LoadingManager();
+  manager.setURLModifier((url) => {
+    const normalized = url.replace(/^(\.\/)+/, "");
+    return textureUrls.get(normalized) ?? url;
+  });
+
+  return new GLTFLoader(manager);
 }
 
 function normalizeObjectToGround(

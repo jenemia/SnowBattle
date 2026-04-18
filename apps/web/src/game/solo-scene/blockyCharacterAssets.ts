@@ -43,6 +43,7 @@ export interface BlockyCharacterInstance {
 }
 
 interface BlockyCharacterDefinition {
+  textureUrl: string;
   url: string;
 }
 
@@ -53,6 +54,10 @@ const BLOCKY_CHARACTER_DEFINITIONS: Record<BlockyCharacterId, BlockyCharacterDef
     BLOCKY_CHARACTER_IDS.map((id) => [
       id,
       {
+        textureUrl: new URL(
+          `../../resources/kenney_blocky-characters_20/Models/GLB format/Textures/texture-${id.slice(-1)}.png`,
+          import.meta.url
+        ).href,
         url: new URL(
           `../../resources/kenney_blocky-characters_20/Models/GLB format/${id}.glb`,
           import.meta.url
@@ -61,7 +66,6 @@ const BLOCKY_CHARACTER_DEFINITIONS: Record<BlockyCharacterId, BlockyCharacterDef
     ])
   ) as Record<BlockyCharacterId, BlockyCharacterDefinition>;
 
-const loader = new GLTFLoader();
 const characterTemplateCache = new Map<
   BlockyCharacterId,
   Promise<BlockyCharacterTemplate>
@@ -105,6 +109,8 @@ async function loadBlockyCharacterTemplate(characterId: BlockyCharacterId) {
     return cached;
   }
 
+  const definition = BLOCKY_CHARACTER_DEFINITIONS[characterId];
+  const loader = createCharacterLoader(definition.textureUrl, characterId);
   const promise = loader.loadAsync(getBlockyCharacterUrl(characterId)).then((gltf) => ({
     animations: gltf.animations,
     root: prepareCharacterRoot(gltf.scene)
@@ -158,6 +164,18 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]) {
   }
 
   return material.clone();
+}
+
+function createCharacterLoader(textureUrl: string, characterId: BlockyCharacterId) {
+  const manager = new THREE.LoadingManager();
+  const textureFilename = `texture-${characterId.slice(-1)}.png`;
+
+  manager.setURLModifier((url) => {
+    const normalized = url.replace(/^(\.\/)+/, "");
+    return normalized === `Textures/${textureFilename}` ? textureUrl : url;
+  });
+
+  return new GLTFLoader(manager);
 }
 
 function normalizeCharacterToGround(root: THREE.Object3D) {
