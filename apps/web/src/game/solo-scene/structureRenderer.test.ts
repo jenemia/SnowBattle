@@ -52,7 +52,7 @@ describe("SoloStructureRenderer", () => {
     bounds.getSize(size);
 
     expect(bounds.min.y).toBeCloseTo(0.03, 5);
-    expect(bounds.max.y).toBeCloseTo(1.53, 5);
+    expect(bounds.max.y).toBeCloseTo(4.53, 5);
     expect(size.x).toBeCloseTo(SOLO_WALL_HALF_WIDTH * 2, 5);
     expect(size.z).toBeCloseTo(SOLO_WALL_HALF_DEPTH * 2, 5);
   });
@@ -72,7 +72,7 @@ describe("SoloStructureRenderer", () => {
     const bounds = scene.children.map((object) => new THREE.Box3().setFromObject(object));
 
     expect(bounds[0]?.min.y).toBeCloseTo(0.03, 5);
-    expect(bounds[0]?.max.y).toBeCloseTo(1.53, 5);
+    expect(bounds[0]?.max.y).toBeCloseTo(4.53, 5);
     expect(bounds[1]?.min.y).toBeCloseTo(0.34, 5);
     expect(bounds[1]?.max.y).toBeCloseTo(2.64, 5);
     expect(bounds[2]?.min.y).toBeCloseTo(0.03, 5);

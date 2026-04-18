@@ -33,7 +33,7 @@ export const STRUCTURE_VISUAL_CONFIG: Record<BuildType, StructureVisualConfig> =
     assetKey: "snow-bunker",
     groundClearance: 0.03,
     targetDepth: SOLO_WALL_HALF_DEPTH * 2,
-    targetHeight: 1.5,
+    targetHeight: 4.5,
     targetWidth: SOLO_WALL_HALF_WIDTH * 2
   }
 };

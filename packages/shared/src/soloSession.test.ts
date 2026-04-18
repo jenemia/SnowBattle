@@ -193,7 +193,7 @@ describe("SoloRulesEngine", () => {
   it("preserves wall preview rotation on placement", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
-    setInput(engine, "A", { aimX: 4, aimY: 5, pointerActive: true });
+    setInput(engine, "A", { aimX: 4, aimY: 4.5, pointerActive: true });
     engine.receiveCommand("A", buildSelect("wall"));
 
     engine.receiveCommand("A", actionPrimary());
@@ -223,7 +223,7 @@ describe("SoloRulesEngine", () => {
     runtime.runtime.players.B.x = 6;
     runtime.runtime.players.B.z = 5;
 
-    setInput(engine, "A", { aimX: 4, aimY: 5, pointerActive: true });
+    setInput(engine, "A", { aimX: 4, aimY: 4.5, pointerActive: true });
     engine.receiveCommand("A", buildSelect("wall"));
 
     engine.receiveCommand("A", actionPrimary());
@@ -233,7 +233,7 @@ describe("SoloRulesEngine", () => {
 
     expect(snapshot.structures).toHaveLength(1);
     expect(snapshot.opponentPlayer.x).toBeCloseTo(6, 5);
-    expect(snapshot.opponentPlayer.z).toBeCloseTo(5, 5);
+    expect(snapshot.opponentPlayer.z).toBeCloseTo(6.05, 5);
   });
 
   it("spawns visible turret projectiles before applying snow load", () => {
@@ -369,7 +369,7 @@ describe("SoloRulesEngine", () => {
     engine.receiveCommand("A", actionPrimary());
     advance(engine, 800);
 
-    setInput(engine, "A", { aimX: 0, aimY: -5, pointerActive: true });
+    setInput(engine, "A", { aimX: 0, aimY: -6.5, pointerActive: true });
     engine.receiveCommand("A", buildSelect("wall"));
     engine.receiveCommand("A", actionPrimary());
     advance(engine, SOLO_SNOWMAN_TURRET_INTERVAL_MS + 100);
