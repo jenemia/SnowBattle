@@ -121,6 +121,10 @@ input {
   flex-wrap: wrap;
 }
 
+.hero-actions[hidden] {
+  display: none;
+}
+
 .hero-actions > * {
   pointer-events: auto;
 }
