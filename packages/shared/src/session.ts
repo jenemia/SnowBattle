@@ -1,6 +1,7 @@
 import type { MatchLifecycle, SlotId } from "./protocol.js";
 
 export type BuildType = "wall" | "snowman_turret" | "heater_beacon";
+export type SessionPlayerAction = "none" | "throw" | "build" | "die";
 
 export type MatchPhase = "standard" | "whiteout" | "final_push" | "finished";
 
@@ -57,6 +58,8 @@ export type SessionCommand =
   | BuildCancelCommand;
 
 export interface SessionPlayerSnapshot {
+  action?: SessionPlayerAction;
+  actionRemainingMs?: number;
   connected: boolean;
   slot: SlotId;
   guestName: string;
@@ -73,6 +76,7 @@ export interface SessionPlayerSnapshot {
 }
 
 export interface SessionStructureSnapshot {
+  aimRotationY?: number;
   id: string;
   type: BuildType;
   ownerSlot: SlotId;

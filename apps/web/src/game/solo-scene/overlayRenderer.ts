@@ -2,20 +2,18 @@ import * as THREE from "three";
 
 import {
   getWallStructureRotationY,
-  SOLO_HEATER_BEACON_RADIUS,
-  SOLO_WALL_HALF_DEPTH,
-  SOLO_WALL_HALF_WIDTH,
   type BuildType,
   type SessionSnapshot
 } from "@snowbattle/shared";
+import {
+  createStructurePreviewFallback,
+  createStructurePreviewInstance
+} from "./structureVisuals";
 
 const CURSOR_RING_Y = 0.03;
 const PREVIEW_ALPHA = 0.38;
-const BUILDING_GROUND_CLEARANCE = 0.03;
-const TURRET_GROUND_CLEARANCE = 0.34;
 
 export class SoloOverlayRenderer {
-  private readonly buildPreviewMaterial: THREE.MeshStandardMaterial;
   private readonly buildPreviews: Record<BuildType, THREE.Object3D>;
   private activeBuildPreview: THREE.Object3D | null = null;
   private readonly cursorMarker: THREE.Mesh;
@@ -27,18 +25,10 @@ export class SoloOverlayRenderer {
     this.cursorMarker = createCursorMarker();
     this.scene.add(this.cursorMarker);
 
-    this.buildPreviewMaterial = new THREE.MeshStandardMaterial({
-      color: "#7be4ff",
-      emissive: "#7be4ff",
-      emissiveIntensity: 0.3,
-      opacity: PREVIEW_ALPHA,
-      roughness: 0.35,
-      transparent: true
-    });
     this.buildPreviews = {
-      heater_beacon: createHeaterPreview(this.buildPreviewMaterial),
-      snowman_turret: createTurretPreview(this.buildPreviewMaterial),
-      wall: createWallPreview(this.buildPreviewMaterial)
+      heater_beacon: createBuildPreview("heater_beacon"),
+      snowman_turret: createBuildPreview("snowman_turret"),
+      wall: createBuildPreview("wall")
     };
     for (const preview of Object.values(this.buildPreviews)) {
       preview.visible = false;
@@ -152,49 +142,6 @@ function createCursorMarker() {
   return cursorMarker;
 }
 
-function createWallPreview(material: THREE.MeshStandardMaterial) {
-  const group = new THREE.Group();
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(SOLO_WALL_HALF_WIDTH * 2, 3, SOLO_WALL_HALF_DEPTH * 2),
-    material
-  );
-  mesh.position.y = 1.5 + BUILDING_GROUND_CLEARANCE;
-  group.add(mesh);
-  return group;
-}
-
-function createTurretPreview(material: THREE.MeshStandardMaterial) {
-  const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), material);
-  body.position.y = 0.8 + TURRET_GROUND_CLEARANCE;
-  group.add(body);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 12), material);
-  head.position.y = 1.85 + TURRET_GROUND_CLEARANCE;
-  group.add(head);
-  return group;
-}
-
-function createHeaterPreview(material: THREE.MeshStandardMaterial) {
-  const group = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 1.2, 16), material);
-  base.position.y = 0.6 + BUILDING_GROUND_CLEARANCE;
-  group.add(base);
-
-  const aura = new THREE.Mesh(
-    new THREE.RingGeometry(
-      SOLO_HEATER_BEACON_RADIUS - 0.18,
-      SOLO_HEATER_BEACON_RADIUS,
-      48
-    ),
-    material
-  );
-  aura.rotation.x = -Math.PI / 2;
-  aura.position.y = 0.04 + BUILDING_GROUND_CLEARANCE;
-  group.add(aura);
-  return group;
-}
-
 function applyPreviewTone(preview: THREE.Object3D, isValid: boolean) {
   preview.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) {
@@ -208,5 +155,23 @@ function applyPreviewTone(preview: THREE.Object3D, isValid: boolean) {
 
     material.color.set(isValid ? "#7be4ff" : "#ff9f80");
     material.emissive.set(isValid ? "#7be4ff" : "#ff8f7a");
+    material.opacity = PREVIEW_ALPHA;
+    material.transparent = true;
   });
+}
+
+function createBuildPreview(buildType: BuildType) {
+  const anchor = new THREE.Group();
+  anchor.add(createStructurePreviewFallback(buildType));
+
+  void createStructurePreviewInstance(buildType).then((preview) => {
+    if (!anchor.parent) {
+      return;
+    }
+
+    anchor.clear();
+    anchor.add(preview);
+  });
+
+  return anchor;
 }

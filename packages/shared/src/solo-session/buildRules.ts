@@ -159,17 +159,20 @@ export function createStructureState(
   buildType: BuildType,
   nextFireAt: number
 ): StructureRuntimeState {
+  const rotationY =
+    buildType === "wall"
+      ? getWallStructureRotationY(player.x, player.z, player.aimX, player.aimZ)
+      : 0;
+
   return {
+    aimRotationY: buildType === "snowman_turret" ? rotationY : undefined,
     enabled: true,
     expiresAt: runtime.elapsedMs + getStructureDuration(buildType),
     hp: getStructureHp(buildType),
     id: `${buildType}-${player.slot}-${runtime.structures.size + 1}`,
     nextFireAt,
     ownerSlot: player.slot,
-    rotationY:
-      buildType === "wall"
-        ? getWallStructureRotationY(player.x, player.z, player.aimX, player.aimZ)
-        : 0,
+    rotationY,
     type: buildType,
     x: player.aimX,
     z: player.aimZ

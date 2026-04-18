@@ -7,6 +7,7 @@ import {
 } from "@snowbattle/shared";
 
 import { getWallPreviewYaw, SoloOverlayRenderer } from "./overlayRenderer";
+import { createStructureFallback } from "./structureVisuals";
 
 describe("SoloOverlayRenderer", () => {
   it("computes wall preview yaw so the preview faces the local player", () => {
@@ -69,7 +70,7 @@ describe("SoloOverlayRenderer", () => {
     expect(preview.rotation.y).toBe(0);
   });
 
-  it("matches the placed turret silhouette with a grounded body and head preview", () => {
+  it("matches the placed turret footprint with the same grounded asset bounds", () => {
     const scene = new THREE.Scene();
     const renderer = new SoloOverlayRenderer(scene);
 
@@ -87,10 +88,68 @@ describe("SoloOverlayRenderer", () => {
     );
 
     const preview = getVisiblePreview(scene);
-    const bounds = new THREE.Box3().setFromObject(preview);
+    const previewBounds = new THREE.Box3().setFromObject(preview);
+    const placedBounds = new THREE.Box3().setFromObject(
+      createStructureFallback("snowman_turret")
+    );
 
-    expect(bounds.min.y).toBeCloseTo(0.34, 5);
-    expect(bounds.max.y).toBeCloseTo(2.64, 5);
+    expect(previewBounds.min.y).toBeCloseTo(placedBounds.min.y, 5);
+    expect(previewBounds.max.y).toBeCloseTo(placedBounds.max.y, 5);
+  });
+
+  it("matches the placed wall bounds while keeping wall yaw control", () => {
+    const scene = new THREE.Scene();
+    const renderer = new SoloOverlayRenderer(scene);
+
+    renderer.sync(
+      createSnapshot({
+        hud: {
+          cursorX: 8,
+          cursorZ: 3,
+          pointerActive: true
+        },
+        localPlayer: {
+          selectedBuild: "wall",
+          x: 2,
+          z: -5
+        }
+      })
+    );
+
+    const preview = getVisiblePreview(scene);
+    const previewBounds = new THREE.Box3().setFromObject(preview);
+    const placedBounds = new THREE.Box3().setFromObject(createStructureFallback("wall"));
+
+    expect(preview.rotation.y).not.toBe(0);
+    expect(previewBounds.min.y).toBeCloseTo(placedBounds.min.y, 5);
+    expect(previewBounds.max.y).toBeCloseTo(placedBounds.max.y, 5);
+  });
+
+  it("matches the placed heater bounds after the 3x scale change", () => {
+    const scene = new THREE.Scene();
+    const renderer = new SoloOverlayRenderer(scene);
+
+    renderer.sync(
+      createSnapshot({
+        hud: {
+          cursorX: -2,
+          cursorZ: 3,
+          pointerActive: true
+        },
+        localPlayer: {
+          selectedBuild: "heater_beacon"
+        }
+      })
+    );
+
+    const preview = getVisiblePreview(scene);
+    const previewBounds = new THREE.Box3().setFromObject(preview);
+    const placedBounds = new THREE.Box3().setFromObject(
+      createStructureFallback("heater_beacon")
+    );
+
+    expect(previewBounds.min.y).toBeCloseTo(placedBounds.min.y, 5);
+    expect(previewBounds.max.y).toBeCloseTo(placedBounds.max.y, 5);
   });
 
   it("scales the whiteout ring down to the new 5-unit final radius", () => {

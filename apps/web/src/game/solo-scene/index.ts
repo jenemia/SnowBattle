@@ -5,4 +5,5 @@ export * from "./overlayRenderer";
 export * from "./playerRenderer";
 export * from "./projectileRenderer";
 export * from "./structureRenderer";
+export * from "./structureVisuals";
 export * from "./types";

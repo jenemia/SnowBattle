@@ -5,6 +5,8 @@ import {
   DEFAULT_MATCH_RULES,
   SOLO_HEATER_BEACON_HP,
   SOLO_SNOWMAN_TURRET_HP,
+  SOLO_WALL_HALF_DEPTH,
+  SOLO_WALL_HALF_WIDTH,
   SOLO_WALL_HP,
   type SessionSnapshot
 } from "@snowbattle/shared";
@@ -46,9 +48,13 @@ describe("SoloStructureRenderer", () => {
 
     const wall = scene.children[0];
     const bounds = new THREE.Box3().setFromObject(wall);
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
 
     expect(bounds.min.y).toBeCloseTo(0.03, 5);
-    expect(bounds.max.y).toBeCloseTo(3.03, 5);
+    expect(bounds.max.y).toBeCloseTo(1.53, 5);
+    expect(size.x).toBeCloseTo(SOLO_WALL_HALF_WIDTH * 2, 5);
+    expect(size.z).toBeCloseTo(SOLO_WALL_HALF_DEPTH * 2, 5);
   });
 
   it("keeps damaged buildables at full height while preserving ground clearance", () => {
@@ -66,11 +72,11 @@ describe("SoloStructureRenderer", () => {
     const bounds = scene.children.map((object) => new THREE.Box3().setFromObject(object));
 
     expect(bounds[0]?.min.y).toBeCloseTo(0.03, 5);
-    expect(bounds[0]?.max.y).toBeCloseTo(3.03, 5);
+    expect(bounds[0]?.max.y).toBeCloseTo(1.53, 5);
     expect(bounds[1]?.min.y).toBeCloseTo(0.34, 5);
     expect(bounds[1]?.max.y).toBeCloseTo(2.64, 5);
     expect(bounds[2]?.min.y).toBeCloseTo(0.03, 5);
-    expect(bounds[2]?.max.y).toBeCloseTo(1.03, 5);
+    expect(bounds[2]?.max.y).toBeCloseTo(3.03, 5);
   });
 
   it("applies persisted wall rotation during sync", () => {
@@ -86,6 +92,23 @@ describe("SoloStructureRenderer", () => {
     );
 
     expect(scene.children[0]?.rotation.y).toBeCloseTo(Math.PI / 3, 5);
+  });
+
+  it("steers turret visuals toward aimRotationY during sync", () => {
+    const scene = new THREE.Scene();
+    const renderer = new SoloStructureRenderer(scene);
+
+    renderer.sync(
+      createSnapshot([
+        createTurret({
+          aimRotationY: Math.PI / 2,
+          rotationY: 0
+        })
+      ]),
+      1
+    );
+
+    expect(scene.children[0]?.rotation.y).toBeCloseTo(Math.PI / 2, 3);
   });
 });
 

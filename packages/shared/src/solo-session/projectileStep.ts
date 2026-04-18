@@ -1,5 +1,7 @@
 import {
   FIRE_COOLDOWN_MS,
+  PLAYER_DIE_ACTION_MS,
+  PLAYER_THROW_ACTION_MS,
   PROJECTILE_SPEED,
   PROJECTILE_SPAWN_DISTANCE,
   PROJECTILE_TTL_MS,
@@ -19,6 +21,7 @@ import type {
   SoloRuntimeState,
   StructureRuntimeState
 } from "./runtimeTypes.js";
+import { setPlayerAction } from "./runtimeTypes.js";
 import { circleIntersectsCircle, circleIntersectsWall } from "./geometry.js";
 
 const TURRET_PROJECTILE_SPEED = 10;
@@ -54,6 +57,7 @@ export function trySpawnProjectile(runtime: SoloRuntimeState, player: PlayerRunt
     z: player.z + directionZ * PROJECTILE_SPAWN_DISTANCE
   });
   player.fireCooldownRemaining = FIRE_COOLDOWN_MS;
+  setPlayerAction(player, "throw", PLAYER_THROW_ACTION_MS);
 }
 
 export function spawnTurretProjectile(
@@ -138,6 +142,7 @@ function applyProjectileHit(
 
   const source = runtime.players[projectile.ownerSlot];
 
+  const previousHp = target.hp;
   target.hp = Math.max(0, target.hp - SOLO_SNOWBALL_DAMAGE);
   target.snowLoad = Math.min(100, target.snowLoad + SOLO_SNOWBALL_LOAD);
   target.lastHitAt = runtime.elapsedMs;
@@ -147,6 +152,9 @@ function applyProjectileHit(
     source.packedSnow + SOLO_PACKED_SNOW_ON_DIRECT_HIT
   );
   source.totalDirectDamageDealt += SOLO_SNOWBALL_DAMAGE;
+  if (previousHp > 0 && target.hp === 0) {
+    setPlayerAction(target, "die", PLAYER_DIE_ACTION_MS);
+  }
 }
 
 function applyTurretHit(runtime: SoloRuntimeState, target: PlayerRuntimeState) {

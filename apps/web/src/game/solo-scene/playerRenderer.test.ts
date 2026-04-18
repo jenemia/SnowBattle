@@ -54,7 +54,10 @@ describe("SoloPlayerRenderer", () => {
     const loadCharacterInstance = vi.fn(async () => ({
       animations: [
         new THREE.AnimationClip("idle", -1, []),
-        new THREE.AnimationClip("walk", -1, [])
+        new THREE.AnimationClip("walk", -1, []),
+        new THREE.AnimationClip("holding-right-shoot", -1, []),
+        new THREE.AnimationClip("interact-right", -1, []),
+        new THREE.AnimationClip("die", -1, [])
       ],
       root: createMockCharacterRoot()
     }));
@@ -98,6 +101,55 @@ describe("SoloPlayerRenderer", () => {
       )
     ).toBe(true);
   });
+
+  it("prefers action clips over locomotion and falls back after the timer ends", async () => {
+    const scene = new THREE.Scene();
+    const clock = { elapsedTime: 0 } as THREE.Clock;
+    const renderer = new SoloPlayerRenderer(scene, clock, {
+      loadCharacterInstance: async () => ({
+        animations: [
+          new THREE.AnimationClip("idle", -1, []),
+          new THREE.AnimationClip("walk", -1, []),
+          new THREE.AnimationClip("holding-right-shoot", -1, []),
+          new THREE.AnimationClip("interact-right", -1, []),
+          new THREE.AnimationClip("die", -1, [])
+        ],
+        root: createMockCharacterRoot()
+      })
+    });
+
+    renderer.sync(createSnapshot(0, 10), 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    renderer.sync(
+      createSnapshot(2, 8, 0, {
+        action: "throw",
+        actionRemainingMs: 300
+      }),
+      1 / 60
+    );
+
+    const internals = renderer as unknown as {
+      playerMeshes: Map<
+        string,
+        {
+          currentMotion: string | null;
+        }
+      >;
+    };
+
+    expect(internals.playerMeshes.get("A")?.currentMotion).toBe("holding-right-shoot");
+
+    renderer.sync(
+      createSnapshot(3, 6, 0, {
+        action: "none",
+        actionRemainingMs: 0
+      }),
+      1 / 60
+    );
+
+    expect(internals.playerMeshes.get("A")?.currentMotion).toBe("walk");
+  });
 });
 
 function createMockCharacterRoot() {
@@ -112,7 +164,12 @@ function createMockCharacterRoot() {
   return root;
 }
 
-function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
+function createSnapshot(
+  x: number,
+  z: number,
+  snowLoad = 0,
+  playerOverrides: Partial<SessionSnapshot["localPlayer"]> = {}
+): SessionSnapshot {
   return {
     hud: {
       activeBonfire: false,
@@ -123,6 +180,8 @@ function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
       result: null
     },
     localPlayer: {
+      action: "none",
+      actionRemainingMs: 0,
       buildCooldownRemaining: 0,
       connected: true,
       facingAngle: 0,
@@ -135,7 +194,8 @@ function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
       slot: "A",
       snowLoad,
       x,
-      z
+      z,
+      ...playerOverrides
     },
     match: {
       centerBonfireState: "idle",
@@ -147,6 +207,8 @@ function createSnapshot(x: number, z: number, snowLoad = 0): SessionSnapshot {
       whiteoutRadius: 22
     },
     opponentPlayer: {
+      action: "none",
+      actionRemainingMs: 0,
       buildCooldownRemaining: 0,
       connected: true,
       facingAngle: Math.PI,

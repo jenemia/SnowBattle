@@ -1,5 +1,6 @@
 import {
   ARENA_HALF_EXTENT,
+  PLAYER_DIE_ACTION_MS,
   PLAYER_SPEED,
   SOLO_HEATER_BEACON_RADIUS,
   SOLO_MAX_PACKED_SNOW,
@@ -18,7 +19,11 @@ import {
   circleIntersectsCircle,
   circleIntersectsWall
 } from "./geometry.js";
-import type { PlayerRuntimeState, SoloRuntimeState } from "./runtimeTypes.js";
+import {
+  setPlayerAction,
+  type PlayerRuntimeState,
+  type SoloRuntimeState
+} from "./runtimeTypes.js";
 
 const PLAYER_COLLISION_RADIUS = 0.9;
 
@@ -33,6 +38,12 @@ export function updatePlayers(
   for (const player of Object.values(runtime.players)) {
     player.buildCooldownRemaining = Math.max(0, player.buildCooldownRemaining - deltaMs);
     player.fireCooldownRemaining = Math.max(0, player.fireCooldownRemaining - deltaMs);
+    if (player.action === "throw" || player.action === "build") {
+      player.actionRemainingMs = Math.max(0, (player.actionRemainingMs ?? 0) - deltaMs);
+      if ((player.actionRemainingMs ?? 0) === 0) {
+        player.action = "none";
+      }
+    }
     player.packedSnow = Math.min(
       SOLO_MAX_PACKED_SNOW,
       player.packedSnow + deltaSeconds * SOLO_PACKED_SNOW_REGEN_PER_SECOND
@@ -78,7 +89,11 @@ export function updatePlayers(
     }
 
     if (phase !== "standard" && Math.hypot(player.x, player.z) > whiteoutRadius) {
+      const previousHp = player.hp;
       player.hp = Math.max(0, player.hp - deltaSeconds * SOLO_WHITEOUT_PLAYER_DAMAGE_PER_SECOND);
+      if (previousHp > 0 && player.hp === 0) {
+        setPlayerAction(player, "die", PLAYER_DIE_ACTION_MS);
+      }
     }
 
     if (

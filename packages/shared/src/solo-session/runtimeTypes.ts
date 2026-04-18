@@ -1,6 +1,7 @@
 import type { MatchRules } from "../matchRules.js";
 import type { SlotId } from "../protocol.js";
 import type {
+  SessionPlayerAction,
   SessionPlayerSnapshot,
   SessionProjectileSnapshot,
   SessionResultSnapshot,
@@ -26,6 +27,15 @@ export interface ProjectileRuntimeState extends SessionProjectileSnapshot {
 
 export interface StructureRuntimeState extends SessionStructureSnapshot {
   nextFireAt: number;
+}
+
+export function setPlayerAction(
+  player: PlayerRuntimeState,
+  action: SessionPlayerAction,
+  durationMs: number
+) {
+  player.action = action;
+  player.actionRemainingMs = durationMs;
 }
 
 export interface BonfireRuntimeState {

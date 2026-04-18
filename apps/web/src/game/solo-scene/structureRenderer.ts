@@ -10,39 +10,18 @@ import {
 } from "@snowbattle/shared";
 
 import {
-  createHolidayAssetFallback,
-  createHolidayAssetInstance,
-  fitHolidayAssetToGround,
-  type HolidayAssetKey
-} from "./holidayKitAssets";
+  createStructureFallback,
+  createStructureInstance
+} from "./structureVisuals";
 
-const STRUCTURE_MODEL_CONFIG: Record<
-  BuildType,
-  { assetKey: HolidayAssetKey; groundClearance: number; targetHeight: number }
-> = {
-  heater_beacon: {
-    assetKey: "lantern",
-    groundClearance: 0.03,
-    targetHeight: 1
-  },
-  snowman_turret: {
-    assetKey: "reindeer",
-    groundClearance: 0.34,
-    targetHeight: 2.3
-  },
-  wall: {
-    assetKey: "snow-bunker",
-    groundClearance: 0.03,
-    targetHeight: 3
-  }
-};
+const STRUCTURE_ROTATION_LERP_SPEED = 14;
 
 export class SoloStructureRenderer {
   private readonly structureMeshes = new Map<string, THREE.Object3D>();
 
   constructor(private readonly scene: THREE.Scene) {}
 
-  sync(snapshot: SessionSnapshot) {
+  sync(snapshot: SessionSnapshot, delta = 1 / 60) {
     const nextIds = new Set(snapshot.structures.map((structure) => structure.id));
 
     for (const structure of snapshot.structures) {
@@ -55,7 +34,7 @@ export class SoloStructureRenderer {
       }
 
       object.position.set(structure.x, 0, structure.z);
-      object.rotation.y = structure.rotationY ?? 0;
+      object.rotation.y = getStructureRotationY(object, structure, delta);
       object.visible = structure.enabled;
       updateStructureVisual(object, structure);
     }
@@ -72,21 +51,12 @@ export class SoloStructureRenderer {
 function createStructureMesh(structure: SessionStructureSnapshot) {
   const container = new THREE.Group();
   container.userData.structureType = structure.type;
-  const config = STRUCTURE_MODEL_CONFIG[structure.type];
-  const fallback = fitHolidayAssetToGround(
-    createHolidayAssetFallback(config.assetKey),
-    {
-      groundClearance: config.groundClearance,
-      targetHeight: config.targetHeight
-    }
-  );
+  container.userData.displayRotationY = structure.rotationY ?? 0;
+  const fallback = createStructureFallback(structure.type);
   container.add(fallback);
 
-  void createHolidayAssetInstance(config.assetKey, {
-    groundClearance: config.groundClearance,
-    targetHeight: config.targetHeight
-  }).then((model) => {
-    if (!container.parent && container.children.length === 0) {
+  void createStructureInstance(structure.type).then((model) => {
+    if (!container.parent) {
       return;
     }
 
@@ -95,6 +65,30 @@ function createStructureMesh(structure: SessionStructureSnapshot) {
   });
 
   return container;
+}
+
+function getStructureRotationY(
+  object: THREE.Object3D,
+  structure: SessionStructureSnapshot,
+  delta: number
+) {
+  const baseRotation = structure.rotationY ?? 0;
+
+  if (structure.type !== "snowman_turret") {
+    object.userData.displayRotationY = baseRotation;
+    return baseRotation;
+  }
+
+  const targetRotation = structure.aimRotationY ?? baseRotation;
+  const currentRotation =
+    typeof object.userData.displayRotationY === "number"
+      ? object.userData.displayRotationY
+      : baseRotation;
+  const alpha = 1 - Math.exp(-STRUCTURE_ROTATION_LERP_SPEED * delta);
+  const nextRotation = lerpAngle(currentRotation, targetRotation, alpha);
+
+  object.userData.displayRotationY = nextRotation;
+  return nextRotation;
 }
 
 function updateStructureVisual(
@@ -139,4 +133,9 @@ function getStructureMaxHp(buildType: BuildType) {
   }
 
   return SOLO_HEATER_BEACON_HP;
+}
+
+function lerpAngle(from: number, to: number, alpha: number) {
+  const delta = (((to - from) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+  return from + delta * alpha;
 }

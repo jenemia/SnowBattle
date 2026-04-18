@@ -149,6 +149,19 @@ describe("SoloRulesEngine", () => {
     expect(snapshot.localPlayer.selectedBuild).toBeNull();
   });
 
+  it("marks a successful build with a short build action signal", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    setInput(engine, "A", { aimY: 5, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("heater_beacon"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 50);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.localPlayer.action).toBe("build");
+    expect(snapshot.localPlayer.actionRemainingMs).toBeGreaterThan(0);
+  });
+
   it("allows walls to place at the extended wall-only build range", () => {
     const engine = new SoloRulesEngine({ botEnabled: false });
 
@@ -219,7 +232,7 @@ describe("SoloRulesEngine", () => {
     const snapshot = engine.getSnapshot();
 
     expect(snapshot.structures).toHaveLength(1);
-    expect(snapshot.opponentPlayer.x).toBeCloseTo(6.45, 5);
+    expect(snapshot.opponentPlayer.x).toBeCloseTo(6, 5);
     expect(snapshot.opponentPlayer.z).toBeCloseTo(5, 5);
   });
 
@@ -256,6 +269,18 @@ describe("SoloRulesEngine", () => {
     const hitSnapshot = engine.getSnapshot();
     expect(hitSnapshot.projectiles).toHaveLength(0);
     expect(hitSnapshot.opponentPlayer.snowLoad).toBeGreaterThan(0);
+  });
+
+  it("publishes a throw action signal when the player launches a snowball", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+
+    setInput(engine, "A", { aimY: -10, pointerActive: true });
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 1, 1);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.localPlayer.action).toBe("throw");
+    expect(snapshot.localPlayer.actionRemainingMs).toBeGreaterThan(0);
   });
 
   it("fires at the target position captured at shot time instead of homing after launch", () => {
@@ -352,6 +377,23 @@ describe("SoloRulesEngine", () => {
     const snapshot = engine.getSnapshot();
     expect(snapshot.structures).toHaveLength(2);
     expect(snapshot.projectiles).toHaveLength(0);
+  });
+
+  it("updates turret aimRotationY toward a valid target before firing", () => {
+    const engine = new SoloRulesEngine({ botEnabled: false });
+    const runtime = engine as unknown as RuntimeAccess;
+
+    runtime.runtime.players.B.x = 6;
+    runtime.runtime.players.B.z = 4;
+
+    setInput(engine, "A", { aimX: 3, aimY: 4, pointerActive: true });
+    engine.receiveCommand("A", buildSelect("snowman_turret"));
+    engine.receiveCommand("A", actionPrimary());
+    advance(engine, 50);
+
+    const turret = engine.getSnapshot().structures[0];
+    expect(turret?.type).toBe("snowman_turret");
+    expect(turret?.aimRotationY).toBeCloseTo(Math.atan2(3, 0), 5);
   });
 
   it("awards the center bonfire reward after channeling", () => {

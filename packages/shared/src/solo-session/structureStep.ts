@@ -1,5 +1,6 @@
 import {
   ARENA_HALF_EXTENT,
+  PLAYER_BUILD_ACTION_MS,
   SOLO_BUILD_COOLDOWN_MS,
   SOLO_SNOWMAN_TURRET_INTERVAL_MS,
   SOLO_SNOWMAN_TURRET_RANGE,
@@ -20,6 +21,7 @@ import type {
   SoloRuntimeState,
   StructureRuntimeState
 } from "./runtimeTypes.js";
+import { setPlayerAction } from "./runtimeTypes.js";
 
 const PLAYER_WALL_COLLISION_RADIUS = 0.9;
 const WALL_PUSH_MARGIN = 0.05;
@@ -62,6 +64,7 @@ export function trySpawnStructure(
   }
   player.buildCooldownRemaining = SOLO_BUILD_COOLDOWN_MS;
   player.packedSnow -= cost;
+  setPlayerAction(player, "build", PLAYER_BUILD_ACTION_MS);
   return true;
 }
 
@@ -84,11 +87,19 @@ export function updateStructures(
       continue;
     }
 
-    if (structure.type !== "snowman_turret" || structure.nextFireAt > runtime.elapsedMs) {
+    if (structure.type !== "snowman_turret") {
       continue;
     }
 
     const target = getAutoTargetPlayer(runtime, structure);
+    structure.aimRotationY = target
+      ? Math.atan2(target.x - structure.x, target.z - structure.z)
+      : structure.rotationY ?? 0;
+
+    if (structure.nextFireAt > runtime.elapsedMs) {
+      continue;
+    }
+
     if (target) {
       spawnTurretProjectile(runtime, structure, target);
     }

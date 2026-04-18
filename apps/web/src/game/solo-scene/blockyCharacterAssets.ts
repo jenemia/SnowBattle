@@ -25,7 +25,12 @@ export const BLOCKY_CHARACTER_IDS = [
 ] as const;
 
 export type BlockyCharacterId = (typeof BLOCKY_CHARACTER_IDS)[number];
-export type BlockyCharacterMotionName = "idle" | "walk";
+export type BlockyCharacterMotionName =
+  | "die"
+  | "holding-right-shoot"
+  | "idle"
+  | "interact-right"
+  | "walk";
 
 export interface BlockyCharacterTemplate {
   animations: THREE.AnimationClip[];

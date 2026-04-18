@@ -11,6 +11,8 @@ function createPlayer(
   guestName: string
 ): PlayerRuntimeState {
   return {
+    action: "none",
+    actionRemainingMs: 0,
     buildCooldownRemaining: 0,
     connected: true,
     facingAngle: slot === "A" ? Math.PI : 0,

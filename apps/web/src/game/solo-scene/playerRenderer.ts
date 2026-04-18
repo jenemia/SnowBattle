@@ -1,6 +1,10 @@
 import * as THREE from "three";
 
-import type { SessionPlayerSnapshot, SessionSnapshot } from "@snowbattle/shared";
+import type {
+  SessionPlayerAction,
+  SessionPlayerSnapshot,
+  SessionSnapshot
+} from "@snowbattle/shared";
 
 import {
   chooseBlockyCharacterId,
@@ -26,6 +30,21 @@ const TEAM_RING_PALETTE = {
   }
 } as const;
 const WALK_MOVEMENT_THRESHOLD = 0.015;
+const ACTION_TO_MOTION: Record<
+  Exclude<SessionPlayerAction, "none">,
+  BlockyCharacterMotionName
+> = {
+  build: "interact-right",
+  die: "die",
+  throw: "holding-right-shoot"
+};
+const RUNNER_MOTION_NAMES = [
+  "idle",
+  "walk",
+  "holding-right-shoot",
+  "interact-right",
+  "die"
+] as const satisfies readonly BlockyCharacterMotionName[];
 
 interface SoloPlayerRendererOptions {
   loadCharacterInstance?: (characterId: BlockyCharacterId) => Promise<BlockyCharacterInstance>;
@@ -101,7 +120,7 @@ export class SoloPlayerRenderer {
         runner.group.position.x - wasX,
         runner.group.position.z - wasZ
       );
-      const motion = movementDistance > WALK_MOVEMENT_THRESHOLD ? "walk" : "idle";
+      const motion = getDesiredRunnerMotion(player, movementDistance);
 
       if (runner.mixer) {
         syncRunnerMotion(runner, motion);
@@ -291,7 +310,7 @@ function createRunnerActions(
 ) {
   const actions: Partial<Record<BlockyCharacterMotionName, THREE.AnimationAction>> = {};
 
-  for (const motionName of ["idle", "walk"] as const) {
+  for (const motionName of RUNNER_MOTION_NAMES) {
     const clip = findBlockyMotionClip(animations, motionName);
 
     if (!clip) {
@@ -300,7 +319,12 @@ function createRunnerActions(
 
     const action = mixer.clipAction(clip, root);
     action.enabled = true;
-    action.setLoop(THREE.LoopRepeat, Infinity);
+    if (motionName === "idle" || motionName === "walk") {
+      action.setLoop(THREE.LoopRepeat, Infinity);
+    } else {
+      action.clampWhenFinished = true;
+      action.setLoop(THREE.LoopOnce, 1);
+    }
     actions[motionName] = action;
   }
 
@@ -329,6 +353,7 @@ function syncRunnerMotion(
 
   nextAction.reset();
   nextAction.enabled = true;
+  nextAction.paused = false;
 
   if (previousAction && previousAction !== nextAction) {
     if (immediate) {
@@ -343,6 +368,21 @@ function syncRunnerMotion(
   }
 
   nextAction.play();
+}
+
+function getDesiredRunnerMotion(
+  player: SessionPlayerSnapshot,
+  movementDistance: number
+): BlockyCharacterMotionName {
+  if (player.hp <= 0 || player.action === "die") {
+    return "die";
+  }
+
+  if (player.action && player.action !== "none" && (player.actionRemainingMs ?? 0) > 0) {
+    return ACTION_TO_MOTION[player.action];
+  }
+
+  return movementDistance > WALK_MOVEMENT_THRESHOLD ? "walk" : "idle";
 }
 
 function updateSnowDrift(runner: RunnerParts, player: SessionPlayerSnapshot) {

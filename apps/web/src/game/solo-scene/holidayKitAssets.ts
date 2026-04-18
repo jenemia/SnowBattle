@@ -23,7 +23,9 @@ interface HolidayAssetDefinition {
 
 export interface HolidayAssetInstanceOptions {
   groundClearance: number;
+  targetDepth?: number;
   targetHeight: number;
+  targetWidth?: number;
 }
 
 const loader = new GLTFLoader();
@@ -117,7 +119,13 @@ export function fitHolidayAssetToGround(
   object: THREE.Object3D,
   options: HolidayAssetInstanceOptions
 ) {
-  normalizeObjectToGround(object, options.targetHeight, options.groundClearance);
+  normalizeObjectToGround(
+    object,
+    options.targetHeight,
+    options.groundClearance,
+    options.targetWidth,
+    options.targetDepth
+  );
   return object;
 }
 
@@ -186,15 +194,21 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]) {
 function normalizeObjectToGround(
   object: THREE.Object3D,
   targetHeight: number,
-  groundClearance: number
+  groundClearance: number,
+  targetWidth?: number,
+  targetDepth?: number
 ) {
   const initialBounds = new THREE.Box3().setFromObject(object);
   const initialSize = new THREE.Vector3();
   initialBounds.getSize(initialSize);
   const height = Math.max(initialSize.y, 0.001);
-  const scale = targetHeight / height;
+  const width = Math.max(initialSize.x, 0.001);
+  const depth = Math.max(initialSize.z, 0.001);
+  const scaleY = targetHeight / height;
+  const scaleX = targetWidth ? targetWidth / width : scaleY;
+  const scaleZ = targetDepth ? targetDepth / depth : scaleY;
 
-  object.scale.multiplyScalar(scale);
+  object.scale.multiply(new THREE.Vector3(scaleX, scaleY, scaleZ));
 
   const scaledBounds = new THREE.Box3().setFromObject(object);
   object.position.y += groundClearance - scaledBounds.min.y;

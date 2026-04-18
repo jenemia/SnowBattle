@@ -24,7 +24,7 @@ describe("blockyCharacterAssets", () => {
     ).toBeGreaterThan(1);
   });
 
-  it("verifies sample GLBs contain idle and walk clips", () => {
+  it("verifies sample GLBs contain locomotion and action clips", () => {
     for (const characterId of ["character-a", "character-r"] as const) {
       const json = parseGlbJson(new URL(getBlockyCharacterUrl(characterId)));
       const animationNames = (json.animations ?? []).map((animation, index) => {
@@ -33,6 +33,9 @@ describe("blockyCharacterAssets", () => {
 
       expect(animationNames).toContain("idle");
       expect(animationNames).toContain("walk");
+      expect(animationNames).toContain("holding-right-shoot");
+      expect(animationNames).toContain("interact-right");
+      expect(animationNames).toContain("die");
     }
   });
 });

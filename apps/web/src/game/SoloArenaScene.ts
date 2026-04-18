@@ -89,7 +89,7 @@ export class SoloArenaScene {
     if (this.latestSnapshot) {
       this.playerRenderer.sync(this.latestSnapshot, delta);
       this.projectileRenderer.sync(this.latestSnapshot);
-      this.structureRenderer.sync(this.latestSnapshot);
+      this.structureRenderer.sync(this.latestSnapshot, delta);
       this.overlayRenderer.sync(this.latestSnapshot);
     }
 
