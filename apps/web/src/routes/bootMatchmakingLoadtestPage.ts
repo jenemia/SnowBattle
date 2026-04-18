@@ -5,6 +5,7 @@ import {
   type BrowserMatchmakingLoadResult
 } from "../testing/matchmakingLoadHarness";
 import { resolveServerUrl } from "../serverUrl";
+import { renderHeroActions } from "./solo-page";
 
 declare global {
   interface Window {
@@ -17,20 +18,28 @@ declare global {
 
 export function bootMatchmakingLoadtestPage(root: HTMLDivElement) {
   root.innerHTML = `
-    <main class="shell">
-      <section class="hero">
-        <div class="hero-copy">
-          <span class="eyebrow">Matchmaking Harness</span>
-          <h1>Browser-side large matchmaking verification</h1>
-          <p>
-            This page stays lightweight and exposes a Playwright harness that spawns Colyseus
-            clients inside the browser without rendering the duel scene.
-          </p>
-        </div>
-        <div class="panel panel-stack">
-          <div class="result" data-testid="matchmaking-loadtest-status">Idle</div>
-          <div class="solo-debug" data-testid="matchmaking-loadtest-server">Server --</div>
-          <div class="solo-debug" data-testid="matchmaking-loadtest-summary">No run yet</div>
+    <main class="shell shell--loadtest">
+      <section class="hero hero--compact">
+        <div class="eyebrow">Matchmaking Harness</div>
+        <h1 class="title">Snow<span>Battle</span></h1>
+        <p class="lede">
+          Browser-side verification for large matchmaking runs. This page stays light and exposes
+          the Playwright harness without rendering the duel scene.
+        </p>
+        ${renderHeroActions([
+          { href: "./", label: "Back to duel home", testId: "loadtest-home-link" },
+          { href: "solo", label: "Open solo movement lab", testId: "loadtest-solo-link" }
+        ])}
+      </section>
+      <section class="arena arena--static">
+        <div class="overlay-stack overlay-stack--top-left">
+          <section class="overlay-card status-card" data-testid="matchmaking-loadtest-card">
+            <div class="status-line status-line--compact">
+              <span class="status-pill" data-testid="matchmaking-loadtest-status">Idle</span>
+            </div>
+            <div class="status-copy" data-testid="matchmaking-loadtest-server">Server --</div>
+            <div class="status-copy" data-testid="matchmaking-loadtest-summary">No run yet</div>
+          </section>
         </div>
       </section>
     </main>

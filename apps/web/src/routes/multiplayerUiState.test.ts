@@ -3,80 +3,61 @@ import { describe, expect, it } from "vitest";
 import { getMultiplayerUiState } from "./multiplayerUiState";
 
 describe("getMultiplayerUiState", () => {
-  it("keeps the queue surface visible until a live snapshot exists", () => {
+  it("keeps the status card visible until a live snapshot exists", () => {
     expect(
       getMultiplayerUiState({
         hasLiveSnapshot: false,
-        hostname: "snowbattle.fly.dev",
         lifecycle: null
       })
     ).toEqual({
-      showDebugPanel: false,
+      showControlsGuide: false,
       showHero: true,
-      showProdSkillStrip: false,
-      showQueuePanel: true
+      showStatusCard: true,
+      showTimerBadge: false
     });
   });
 
-  it("keeps the queue surface visible through waiting and countdown snapshots", () => {
+  it("keeps the status card visible through waiting and countdown snapshots", () => {
     for (const lifecycle of ["waiting", "countdown"] as const) {
       expect(
         getMultiplayerUiState({
           hasLiveSnapshot: true,
-          hostname: "localhost",
           lifecycle
         })
       ).toEqual({
-        showDebugPanel: false,
+        showControlsGuide: false,
         showHero: true,
-        showProdSkillStrip: false,
-        showQueuePanel: true
+        showStatusCard: true,
+        showTimerBadge: false
       });
     }
   });
 
-  it("keeps the right debug panel hidden during live matches on localhost", () => {
+  it("shows only the guide card and timer during live matches", () => {
     expect(
       getMultiplayerUiState({
         hasLiveSnapshot: true,
-        hostname: "127.0.0.1",
         lifecycle: "in_match"
       })
     ).toEqual({
-      showDebugPanel: false,
-      showHero: false,
-      showProdSkillStrip: false,
-      showQueuePanel: false
+      showControlsGuide: true,
+      showHero: true,
+      showStatusCard: false,
+      showTimerBadge: true
     });
   });
 
-  it("shows the compact prod strip during live matches on deployed hosts", () => {
+  it("returns to the status card once a match is finished", () => {
     expect(
       getMultiplayerUiState({
         hasLiveSnapshot: true,
-        hostname: "jenemia.github.io",
-        lifecycle: "in_match"
-      })
-    ).toEqual({
-      showDebugPanel: false,
-      showHero: false,
-      showProdSkillStrip: true,
-      showQueuePanel: false
-    });
-  });
-
-  it("returns to the queue panel once a match is finished", () => {
-    expect(
-      getMultiplayerUiState({
-        hasLiveSnapshot: true,
-        hostname: "localhost",
         lifecycle: "finished"
       })
     ).toEqual({
-      showDebugPanel: false,
-      showHero: false,
-      showProdSkillStrip: false,
-      showQueuePanel: true
+      showControlsGuide: false,
+      showHero: true,
+      showStatusCard: true,
+      showTimerBadge: false
     });
   });
 });

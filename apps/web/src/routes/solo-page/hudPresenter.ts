@@ -1,142 +1,72 @@
-import {
-  getStructureMaxCount,
-  type BuildType,
-  type SessionSnapshot
-} from "@snowbattle/shared";
+import type { SessionSnapshot } from "@snowbattle/shared";
 
 export type SessionHudMode = "solo" | "duel";
 
-export interface SoloHudViewModel {
+export interface SessionHudViewModel {
   actionDisabled: boolean;
   actionText: string;
-  bonfireText: string;
-  buildText: string;
-  cooldownText: string;
-  cursorText: string;
-  hpText: string;
-  modeText: string;
-  opponentHpText: string;
-  packedSnowText: string;
-  phaseText: string;
-  positionText: string;
-  previewText: string;
-  projectilesText: string;
   readoutText: string;
   resultText: string;
-  snowLoadText: string;
   statusText: string;
-  structuresText: string;
   timerBadgeText: string;
-  timeText: string;
 }
 
 export interface SessionHudElements {
   actionButton?: HTMLButtonElement;
-  bonfire: HTMLElement;
-  build: HTMLElement;
-  cooldown: HTMLElement;
-  cursor: HTMLElement;
-  hp: HTMLElement;
-  mode: HTMLElement;
-  opponentHp: HTMLElement;
-  packedSnow: HTMLElement;
-  phase: HTMLElement;
-  position: HTMLElement;
-  preview: HTMLElement;
-  projectiles: HTMLElement;
-  readout: HTMLElement;
-  result: HTMLElement;
-  snowLoad: HTMLElement;
-  status: HTMLElement;
-  structures: HTMLElement;
+  readout?: HTMLElement;
+  result?: HTMLElement;
+  status?: HTMLElement;
   timerBadge?: HTMLElement;
-  time: HTMLElement;
-}
-
-export interface DuelSkillStripViewModel {
-  cooldownText: string;
-  heaterBeaconText: string;
-  snowmanTurretText: string;
-  wallText: string;
-}
-
-export interface DuelSkillStripElements {
-  cooldown: HTMLElement;
-  heaterBeacon: HTMLElement;
-  snowmanTurret: HTMLElement;
-  wall: HTMLElement;
 }
 
 export function presentSessionHud(
   snapshot: SessionSnapshot,
   mode: SessionHudMode
-): SoloHudViewModel {
+): SessionHudViewModel {
   const copy = HUD_COPY[mode];
 
   return {
     actionDisabled: snapshot.hud.result === null,
     actionText: copy.actionText,
-    bonfireText: snapshot.match.centerBonfireState,
-    buildText: snapshot.localPlayer.selectedBuild ?? "combat",
-    cooldownText: `${(snapshot.localPlayer.buildCooldownRemaining / 1000).toFixed(2)}s`,
-    cursorText: `${snapshot.hud.cursorX.toFixed(1)} / ${snapshot.hud.cursorZ.toFixed(1)}`,
-    hpText: `${Math.round(snapshot.localPlayer.hp)}`,
-    modeText: getModeText(snapshot),
-    opponentHpText: `${Math.round(snapshot.opponentPlayer.hp)}`,
-    packedSnowText: `${Math.round(snapshot.localPlayer.packedSnow)}`,
-    phaseText: snapshot.match.phase,
-    positionText: `${snapshot.localPlayer.x.toFixed(1)} / ${snapshot.localPlayer.z.toFixed(1)}`,
-    previewText: snapshot.hud.buildPreviewValid ? "valid" : "blocked",
-    projectilesText: String(snapshot.projectiles.length),
     readoutText: getReadoutText(snapshot, copy),
     resultText: getResultText(snapshot),
-    snowLoadText: `${Math.round(snapshot.localPlayer.snowLoad)}`,
-    statusText:
-      snapshot.hud.result !== null
-        ? "Complete"
-        : snapshot.localPlayer.selectedBuild === null
-          ? "Combat"
-          : "Build",
-    structuresText: String(snapshot.structures.length),
-    timerBadgeText: formatMatchClock(snapshot.match.timeRemainingMs),
-    timeText: formatMatchClock(snapshot.match.timeRemainingMs)
+    statusText: getStatusText(snapshot),
+    timerBadgeText: formatMatchClock(snapshot.match.timeRemainingMs)
   };
 }
 
-export function presentSoloHud(snapshot: SessionSnapshot): SoloHudViewModel {
+export function presentSoloHud(snapshot: SessionSnapshot): SessionHudViewModel {
   return presentSessionHud(snapshot, "solo");
 }
 
-export function presentDuelHud(snapshot: SessionSnapshot): SoloHudViewModel {
+export function presentDuelHud(snapshot: SessionSnapshot): SessionHudViewModel {
   return presentSessionHud(snapshot, "duel");
 }
 
 export function renderSessionHud(
   elements: SessionHudElements,
-  hud: SoloHudViewModel,
-  previous: SoloHudViewModel | null = null
+  hud: SessionHudViewModel,
+  previous: SessionHudViewModel | null = null
 ) {
-  setTextIfChanged(elements.bonfire, previous?.bonfireText, hud.bonfireText);
-  setTextIfChanged(elements.build, previous?.buildText, hud.buildText);
-  setTextIfChanged(elements.cooldown, previous?.cooldownText, hud.cooldownText);
-  setTextIfChanged(elements.cursor, previous?.cursorText, hud.cursorText);
-  setTextIfChanged(elements.hp, previous?.hpText, hud.hpText);
-  setTextIfChanged(elements.mode, previous?.modeText, hud.modeText);
-  setTextIfChanged(elements.opponentHp, previous?.opponentHpText, hud.opponentHpText);
-  setTextIfChanged(elements.packedSnow, previous?.packedSnowText, hud.packedSnowText);
-  setTextIfChanged(elements.phase, previous?.phaseText, hud.phaseText);
-  setTextIfChanged(elements.position, previous?.positionText, hud.positionText);
-  setTextIfChanged(elements.preview, previous?.previewText, hud.previewText);
-  setTextIfChanged(elements.projectiles, previous?.projectilesText, hud.projectilesText);
-  setTextIfChanged(elements.readout, previous?.readoutText, hud.readoutText);
-  setTextIfChanged(elements.result, previous?.resultText, hud.resultText);
-  setTextIfChanged(elements.snowLoad, previous?.snowLoadText, hud.snowLoadText);
-  setTextIfChanged(elements.status, previous?.statusText, hud.statusText);
-  setTextIfChanged(elements.structures, previous?.structuresText, hud.structuresText);
-  if (elements.timerBadge) {
-    setTextIfChanged(elements.timerBadge, previous?.timerBadgeText, hud.timerBadgeText);
+  if (elements.status) {
+    setTextIfChanged(elements.status, previous?.statusText, hud.statusText);
   }
-  setTextIfChanged(elements.time, previous?.timeText, hud.timeText);
+
+  if (elements.readout) {
+    setTextIfChanged(elements.readout, previous?.readoutText, hud.readoutText);
+  }
+
+  if (elements.result) {
+    setTextIfChanged(elements.result, previous?.resultText, hud.resultText);
+  }
+
+  if (elements.timerBadge) {
+    setTextIfChanged(
+      elements.timerBadge,
+      previous?.timerBadgeText,
+      hud.timerBadgeText
+    );
+  }
 
   if (elements.actionButton) {
     if (previous?.actionDisabled !== hud.actionDisabled) {
@@ -147,56 +77,20 @@ export function renderSessionHud(
   }
 }
 
-export function presentDuelSkillStrip(
-  snapshot: SessionSnapshot
-): DuelSkillStripViewModel {
-  return {
-    cooldownText: `${(snapshot.localPlayer.buildCooldownRemaining / 1000).toFixed(2)}s`,
-    heaterBeaconText: `Heater ${getRemainingSkillCount(snapshot, "heater_beacon")}`,
-    snowmanTurretText: `Turret ${getRemainingSkillCount(snapshot, "snowman_turret")}`,
-    wallText: `Wall ${getRemainingSkillCount(snapshot, "wall")}`
-  };
-}
-
-export function renderDuelSkillStrip(
-  elements: DuelSkillStripElements,
-  strip: DuelSkillStripViewModel,
-  previous: DuelSkillStripViewModel | null = null
-) {
-  setTextIfChanged(elements.cooldown, previous?.cooldownText, strip.cooldownText);
-  setTextIfChanged(
-    elements.heaterBeacon,
-    previous?.heaterBeaconText,
-    strip.heaterBeaconText
-  );
-  setTextIfChanged(
-    elements.snowmanTurret,
-    previous?.snowmanTurretText,
-    strip.snowmanTurretText
-  );
-  setTextIfChanged(elements.wall, previous?.wallText, strip.wallText);
-}
-
-function getModeText(snapshot: SessionSnapshot) {
+function getStatusText(snapshot: SessionSnapshot) {
   if (snapshot.hud.result !== null) {
-    return "Round resolved";
+    return "Complete";
   }
 
   if (snapshot.match.phase === "final_push") {
-    return "Final push · Builds locked";
+    return "Final push";
   }
 
   if (snapshot.match.phase === "whiteout") {
-    return "Whiteout · Stay in the ring";
+    return "Whiteout";
   }
 
-  if (snapshot.localPlayer.selectedBuild === null) {
-    return snapshot.localPlayer.buildCooldownRemaining > 0
-      ? "Snowball cooling"
-      : "Throw ready";
-  }
-
-  return snapshot.hud.buildPreviewValid ? "Placement valid" : "Placement blocked";
+  return snapshot.localPlayer.selectedBuild === null ? "Combat" : "Build";
 }
 
 function getResultText(snapshot: SessionSnapshot) {
@@ -215,10 +109,7 @@ function getResultText(snapshot: SessionSnapshot) {
   return `Defeat · ${snapshot.hud.result.reason}`;
 }
 
-function getReadoutText(
-  snapshot: SessionSnapshot,
-  copy: SessionHudCopy
-) {
+function getReadoutText(snapshot: SessionSnapshot, copy: SessionHudCopy) {
   if (snapshot.hud.result !== null) {
     if (snapshot.hud.result.winnerSlot === snapshot.localPlayer.slot) {
       return copy.winReadout;
@@ -236,7 +127,7 @@ function getReadoutText(
   }
 
   if (snapshot.match.phase === "whiteout") {
-    return "Whiteout is closing in. Use the ring and bonfire timing to stay alive.";
+    return "Whiteout is closing in. Stay inside the ring.";
   }
 
   if (snapshot.localPlayer.selectedBuild === null) {
@@ -277,21 +168,6 @@ const HUD_COPY: Record<SessionHudMode, SessionHudCopy> = {
     winReadout: "Round complete. Queue another local run whenever you want."
   }
 };
-
-function getRemainingSkillCount(
-  snapshot: SessionSnapshot,
-  buildType: BuildType
-) {
-  const activeOwnedCount = snapshot.structures.filter((structure) => {
-    return (
-      structure.enabled &&
-      structure.ownerSlot === snapshot.localPlayer.slot &&
-      structure.type === buildType
-    );
-  }).length;
-
-  return Math.max(0, getStructureMaxCount(buildType) - activeOwnedCount);
-}
 
 function setTextIfChanged(
   element: Pick<HTMLElement, "textContent">,
