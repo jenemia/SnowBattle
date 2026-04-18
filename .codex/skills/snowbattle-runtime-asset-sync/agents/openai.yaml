@@ -1,0 +1,4 @@
+interface:
+  display_name: "SnowBattle Asset Sync"
+  short_description: "Project-specific asset runtime and preview wiring"
+  default_prompt: "Use $snowbattle-runtime-asset-sync to wire new assets into SnowBattle's renderers, previews, and shared session state."
