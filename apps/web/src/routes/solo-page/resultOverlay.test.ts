@@ -5,7 +5,7 @@ import {
   type SessionSnapshot
 } from "@snowbattle/shared";
 
-import { getResultOverlayViewModel } from "./resultOverlay";
+import { getResultOverlayKey, getResultOverlayViewModel } from "./resultOverlay";
 
 describe("getResultOverlayViewModel", () => {
   it("uses victory copy for a local win", () => {
@@ -61,6 +61,25 @@ describe("getResultOverlayViewModel", () => {
       reason: "",
       title: "Round complete"
     });
+  });
+
+  it("builds a stable key for dismissing the current result overlay", () => {
+    const snapshot = createSnapshot({
+      hud: {
+        result: {
+          reason: "elimination",
+          winnerSlot: "A"
+        }
+      },
+      match: {
+        lifecycle: "finished",
+        phase: "finished"
+      }
+    });
+
+    expect(getResultOverlayKey(snapshot, "solo")).toBe(
+      "solo:finished:finished:A:elimination"
+    );
   });
 });
 

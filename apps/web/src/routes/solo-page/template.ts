@@ -53,6 +53,7 @@ export interface SoloPageElements {
   queueStatusStage: HTMLElement;
   queueToggle: HTMLButtonElement;
   readout: HTMLElement;
+  resultQueueToggle: HTMLButtonElement;
   resultOverlay: HTMLElement;
   resultOverlayReadout: HTMLElement;
   resultOverlayReason: HTMLElement;
@@ -183,6 +184,14 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
               </button>
               <button
                 class="secondary-link"
+                id="solo-result-queue-toggle"
+                type="button"
+                data-testid="solo-result-queue-toggle"
+              >
+                Queue for duel
+              </button>
+              <button
+                class="secondary-link"
                 id="solo-queue-again"
                 type="button"
                 data-testid="solo-queue-again"
@@ -288,6 +297,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     queueStatusStage: requireElement<HTMLElement>(root, "#solo-queue-status-stage"),
     queueToggle: requireElement<HTMLButtonElement>(root, "#solo-queue-toggle"),
     readout: requireElement<HTMLElement>(root, "#solo-readout"),
+    resultQueueToggle: requireElement<HTMLButtonElement>(root, "#solo-result-queue-toggle"),
     resultOverlay: requireElement<HTMLElement>(root, "#solo-result-overlay"),
     resultOverlayReadout: requireElement<HTMLElement>(root, "#solo-result-overlay-readout"),
     resultOverlayReason: requireElement<HTMLElement>(root, "#solo-result-overlay-reason"),

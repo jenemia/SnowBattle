@@ -10,6 +10,21 @@ export interface ResultOverlayViewModel {
   title: string;
 }
 
+export function getResultOverlayKey(
+  snapshot: SessionSnapshot,
+  mode: ResultOverlayMode
+) {
+  const result = snapshot.hud.result;
+
+  return [
+    mode,
+    snapshot.match.lifecycle,
+    snapshot.match.phase,
+    result?.winnerSlot ?? "none",
+    result?.reason ?? "none"
+  ].join(":");
+}
+
 export function getResultOverlayViewModel(
   snapshot: SessionSnapshot,
   mode: ResultOverlayMode

@@ -26,7 +26,10 @@ import {
   renderSessionHud,
   renderSoloPage
 } from "./solo-page";
-import { getResultOverlayViewModel } from "./solo-page/resultOverlay";
+import {
+  getResultOverlayKey,
+  getResultOverlayViewModel
+} from "./solo-page/resultOverlay";
 
 type HybridShellState =
   | "solo_active"
@@ -68,6 +71,7 @@ export function bootSoloPage(root: HTMLDivElement) {
   let duelTeardown: (() => void) | null = null;
   let shellState: HybridShellState = "solo_active";
   let redirectingPortal = false;
+  let dismissedResultOverlayKey: string | null = null;
   let queueSessionToken = 0;
   const queueState = createInitialQueueState();
   const queueUnsubscribers = new Set<() => void>();
@@ -89,7 +93,6 @@ export function bootSoloPage(root: HTMLDivElement) {
 
   ui.queueToggle.addEventListener("click", () => {
     if (queueProvider) {
-      void cancelQueue();
       return;
     }
 
@@ -97,18 +100,32 @@ export function bootSoloPage(root: HTMLDivElement) {
   });
 
   ui.reset.addEventListener("click", () => {
+    dismissCurrentResultOverlay();
     mountSoloSurface(true);
   });
 
   ui.resultRestart.addEventListener("click", () => {
+    dismissCurrentResultOverlay();
     mountSoloSurface(true);
   });
 
+  ui.resultQueueToggle.addEventListener("click", () => {
+    if (queueProvider) {
+      return;
+    }
+
+    dismissCurrentResultOverlay();
+
+    void startQueue();
+  });
+
   ui.queueAgain.addEventListener("click", () => {
+    dismissCurrentResultOverlay();
     void leaveDuelAndReturnToSolo(true);
   });
 
   ui.backToSolo.addEventListener("click", () => {
+    dismissCurrentResultOverlay();
     void leaveDuelAndReturnToSolo(false);
   });
 
@@ -446,14 +463,14 @@ export function bootSoloPage(root: HTMLDivElement) {
     ui.queueAgain.disabled = !backendConfig.isConfigured;
     ui.backToSolo.disabled = false;
     ui.resultRestart.disabled = latestSoloSnapshot?.hud.result === null;
+    ui.resultQueueToggle.disabled = !backendConfig.isConfigured || queueProvider !== null;
+    ui.resultQueueToggle.textContent = "Queue for duel";
+    ui.queueToggle.disabled = !backendConfig.isConfigured || queueProvider !== null;
+    ui.queueToggle.textContent = "Queue for duel";
     ui.timerBadge.hidden = !showTimer;
 
     if (!duelVisible) {
       ui.reset.disabled = latestSoloSnapshot?.hud.result === null;
-      ui.queueToggle.disabled = !backendConfig.isConfigured && queueProvider === null;
-      ui.queueToggle.textContent = queueProvider
-        ? "Cancel duel queue"
-        : "Queue for duel";
     }
 
     syncResultOverlay(resultOverlayState);
@@ -470,6 +487,7 @@ export function bootSoloPage(root: HTMLDivElement) {
       ui.resultOverlay.hidden = true;
       ui.result.hidden = false;
       ui.resultRestart.hidden = true;
+      ui.resultQueueToggle.hidden = true;
       ui.queueAgain.hidden = true;
       ui.backToSolo.hidden = true;
       return;
@@ -479,6 +497,7 @@ export function bootSoloPage(root: HTMLDivElement) {
     ui.resultOverlay.hidden = false;
     ui.result.hidden = true;
     ui.resultRestart.hidden = state.mode !== "solo";
+    ui.resultQueueToggle.hidden = state.mode !== "solo";
     ui.queueAgain.hidden = state.mode !== "duel";
     ui.backToSolo.hidden = state.mode !== "duel";
     setTextIfChanged(ui.resultOverlayTitle, viewModel.title);
@@ -487,6 +506,23 @@ export function bootSoloPage(root: HTMLDivElement) {
   }
 
   function getResultOverlayState():
+    | { mode: "duel" | "solo"; snapshot: SessionSnapshot }
+    | null {
+    const state = getBaseResultOverlayState();
+
+    if (!state) {
+      dismissedResultOverlayKey = null;
+      return null;
+    }
+
+    if (dismissedResultOverlayKey === getResultOverlayKey(state.snapshot, state.mode)) {
+      return null;
+    }
+
+    return state;
+  }
+
+  function getBaseResultOverlayState():
     | { mode: "duel" | "solo"; snapshot: SessionSnapshot }
     | null {
     if (shellState === "duel_active" || shellState === "duel_result") {
@@ -511,6 +547,21 @@ export function bootSoloPage(root: HTMLDivElement) {
     }
 
     return null;
+  }
+
+  function dismissCurrentResultOverlay() {
+    const state = getBaseResultOverlayState();
+
+    if (state) {
+      dismissedResultOverlayKey = getResultOverlayKey(state.snapshot, state.mode);
+    }
+
+    ui.resultOverlay.hidden = true;
+    ui.result.hidden = true;
+    ui.resultRestart.hidden = true;
+    ui.resultQueueToggle.hidden = true;
+    ui.queueAgain.hidden = true;
+    ui.backToSolo.hidden = true;
   }
 
   function updateMetricNodes(snapshot: SessionSnapshot) {

@@ -185,6 +185,10 @@ input {
   pointer-events: none;
 }
 
+.result-overlay[hidden] {
+  display: none;
+}
+
 .result-overlay-backdrop {
   position: absolute;
   inset: 0;
