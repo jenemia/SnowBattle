@@ -26,6 +26,7 @@ import {
   renderSessionHud,
   renderSoloPage
 } from "./solo-page";
+import { getResultOverlayViewModel } from "./solo-page/resultOverlay";
 
 type HybridShellState =
   | "solo_active"
@@ -96,6 +97,10 @@ export function bootSoloPage(root: HTMLDivElement) {
   });
 
   ui.reset.addEventListener("click", () => {
+    mountSoloSurface(true);
+  });
+
+  ui.resultRestart.addEventListener("click", () => {
     mountSoloSurface(true);
   });
 
@@ -396,6 +401,7 @@ export function bootSoloPage(root: HTMLDivElement) {
       : "";
     setTextIfChanged(ui.queueStatusCode, queueState.statusCode);
     setTextIfChanged(ui.queueStatusStage, queueState.statusStage);
+    syncResultOverlay();
     syncSurfaceVisibility();
   }
 
@@ -422,20 +428,24 @@ export function bootSoloPage(root: HTMLDivElement) {
     ui.portalCopy.hidden = true;
     setTextIfChanged(ui.queueStatusCode, queueState.statusCode);
     setTextIfChanged(ui.queueStatusStage, queueState.statusStage);
+    syncResultOverlay();
     syncSurfaceVisibility();
   }
 
   function syncQueueControls() {
     const duelVisible = shellState === "duel_active" || shellState === "duel_result";
+    const resultOverlayState = getResultOverlayState();
+    const resultOverlayVisible = resultOverlayState !== null;
     const showTimer =
       shellState === "duel_active" &&
       latestDuelSnapshot?.match.lifecycle === "in_match";
 
-    ui.queueToggle.hidden = duelVisible;
-    ui.reset.hidden = duelVisible;
-    ui.resultActions.hidden = shellState !== "duel_result";
+    ui.queueToggle.hidden = duelVisible || resultOverlayVisible;
+    ui.reset.hidden = duelVisible || resultOverlayVisible;
+    ui.resultActions.hidden = true;
     ui.queueAgain.disabled = !backendConfig.isConfigured;
     ui.backToSolo.disabled = false;
+    ui.resultRestart.disabled = latestSoloSnapshot?.hud.result === null;
     ui.timerBadge.hidden = !showTimer;
 
     if (!duelVisible) {
@@ -445,10 +455,62 @@ export function bootSoloPage(root: HTMLDivElement) {
         ? "Cancel duel queue"
         : "Queue for duel";
     }
+
+    syncResultOverlay(resultOverlayState);
   }
 
   function syncSurfaceVisibility() {
     ui.hero.hidden = shellState === "duel_active" || shellState === "duel_result";
+  }
+
+  function syncResultOverlay(
+    state = getResultOverlayState()
+  ) {
+    if (!state) {
+      ui.resultOverlay.hidden = true;
+      ui.result.hidden = false;
+      ui.resultRestart.hidden = true;
+      ui.queueAgain.hidden = true;
+      ui.backToSolo.hidden = true;
+      return;
+    }
+
+    const viewModel = getResultOverlayViewModel(state.snapshot, state.mode);
+    ui.resultOverlay.hidden = false;
+    ui.result.hidden = true;
+    ui.resultRestart.hidden = state.mode !== "solo";
+    ui.queueAgain.hidden = state.mode !== "duel";
+    ui.backToSolo.hidden = state.mode !== "duel";
+    setTextIfChanged(ui.resultOverlayTitle, viewModel.title);
+    setTextIfChanged(ui.resultOverlayReason, viewModel.reason);
+    setTextIfChanged(ui.resultOverlayReadout, viewModel.readout);
+  }
+
+  function getResultOverlayState():
+    | { mode: "duel" | "solo"; snapshot: SessionSnapshot }
+    | null {
+    if (shellState === "duel_active" || shellState === "duel_result") {
+      if (
+        latestDuelSnapshot &&
+        (latestDuelSnapshot.hud.result !== null || shellState === "duel_result")
+      ) {
+        return {
+          mode: "duel",
+          snapshot: latestDuelSnapshot
+        };
+      }
+
+      return null;
+    }
+
+    if (latestSoloSnapshot && latestSoloSnapshot.hud.result !== null) {
+      return {
+        mode: "solo",
+        snapshot: latestSoloSnapshot
+      };
+    }
+
+    return null;
   }
 
   function updateMetricNodes(snapshot: SessionSnapshot) {

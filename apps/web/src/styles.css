@@ -175,6 +175,57 @@ input {
   backdrop-filter: blur(16px);
 }
 
+.result-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.result-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 10, 16, 0.42);
+}
+
+.result-overlay-card {
+  position: relative;
+  z-index: 1;
+  width: min(28rem, calc(100% - 2rem));
+  display: grid;
+  gap: 0.95rem;
+  padding: 1.25rem 1.25rem 1.15rem;
+  pointer-events: auto;
+  text-align: center;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.34);
+}
+
+.result-overlay-title {
+  margin: 0;
+  font-family: "Oxanium", sans-serif;
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  line-height: 0.94;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.result-overlay-reason {
+  min-height: 0;
+  font-size: 1rem;
+}
+
+.result-overlay-readout {
+  margin: 0;
+}
+
+.result-overlay-actions {
+  justify-content: center;
+  margin-top: 0;
+}
+
 .session-card {
   position: absolute;
   z-index: 3;
@@ -490,6 +541,14 @@ input {
     bottom: auto;
     width: auto;
     margin: 1.5rem;
+  }
+
+  .result-overlay {
+    padding: 1rem;
+  }
+
+  .result-overlay-card {
+    width: min(100%, 24rem);
   }
 
   .status-grid {

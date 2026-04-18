@@ -53,6 +53,11 @@ export interface SoloPageElements {
   queueStatusStage: HTMLElement;
   queueToggle: HTMLButtonElement;
   readout: HTMLElement;
+  resultOverlay: HTMLElement;
+  resultOverlayReadout: HTMLElement;
+  resultOverlayReason: HTMLElement;
+  resultOverlayTitle: HTMLElement;
+  resultRestart: HTMLButtonElement;
   reset: HTMLButtonElement;
   result: HTMLElement;
   resultActions: HTMLElement;
@@ -141,6 +146,60 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
         >
           02:00
         </div>
+        <div
+          class="result-overlay"
+          id="solo-result-overlay"
+          data-testid="solo-result-overlay"
+          hidden
+        >
+          <div class="result-overlay-backdrop"></div>
+          <section class="overlay-card result-overlay-card">
+            <div class="overlay-card-title">Battle result</div>
+            <h2
+              class="result-overlay-title"
+              id="solo-result-overlay-title"
+              data-testid="solo-result-overlay-title"
+            >
+              Victory
+            </h2>
+            <div
+              class="result result-overlay-reason"
+              id="solo-result-overlay-reason"
+              data-testid="solo-result-overlay-reason"
+            ></div>
+            <p
+              class="status-copy result-overlay-readout"
+              id="solo-result-overlay-readout"
+              data-testid="solo-result-overlay-readout"
+            ></p>
+            <div class="hero-actions result-overlay-actions">
+              <button
+                class="primary-button"
+                id="solo-result-restart"
+                type="button"
+                data-testid="solo-result-restart"
+              >
+                Restart round
+              </button>
+              <button
+                class="secondary-link"
+                id="solo-queue-again"
+                type="button"
+                data-testid="solo-queue-again"
+              >
+                Queue again
+              </button>
+              <button
+                class="secondary-link"
+                id="solo-back-to-solo"
+                type="button"
+                data-testid="solo-back-to-solo"
+              >
+                Back to solo
+              </button>
+            </div>
+          </section>
+        </div>
         <div class="overlay-stack overlay-stack--bottom-right">
           <section
             class="overlay-card status-card status-card--interactive"
@@ -170,24 +229,7 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
             </button>
             <div class="result" id="solo-result" data-testid="solo-result"></div>
             <div class="portal-copy" id="solo-portal-copy" data-testid="solo-portal-copy" hidden></div>
-            <div class="hero-actions" id="solo-result-actions" hidden>
-              <button
-                class="secondary-link"
-                id="solo-queue-again"
-                type="button"
-                data-testid="solo-queue-again"
-              >
-                Queue again
-              </button>
-              <button
-                class="secondary-link"
-                id="solo-back-to-solo"
-                type="button"
-                data-testid="solo-back-to-solo"
-              >
-                Back to solo
-              </button>
-            </div>
+            <div class="hero-actions" id="solo-result-actions" hidden></div>
           </section>
         </div>
         <div class="overlay-stack overlay-stack--bottom-left">
@@ -246,6 +288,11 @@ export function renderSoloPage(root: HTMLDivElement): SoloPageElements {
     queueStatusStage: requireElement<HTMLElement>(root, "#solo-queue-status-stage"),
     queueToggle: requireElement<HTMLButtonElement>(root, "#solo-queue-toggle"),
     readout: requireElement<HTMLElement>(root, "#solo-readout"),
+    resultOverlay: requireElement<HTMLElement>(root, "#solo-result-overlay"),
+    resultOverlayReadout: requireElement<HTMLElement>(root, "#solo-result-overlay-readout"),
+    resultOverlayReason: requireElement<HTMLElement>(root, "#solo-result-overlay-reason"),
+    resultOverlayTitle: requireElement<HTMLElement>(root, "#solo-result-overlay-title"),
+    resultRestart: requireElement<HTMLButtonElement>(root, "#solo-result-restart"),
     reset: requireElement<HTMLButtonElement>(root, "#solo-reset"),
     result: requireElement<HTMLElement>(root, "#solo-result"),
     resultActions: requireElement<HTMLElement>(root, "#solo-result-actions"),
