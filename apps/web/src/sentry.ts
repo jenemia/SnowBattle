@@ -5,6 +5,7 @@ const DEFAULT_PRODUCTION_TRACES_SAMPLE_RATE = 0.1;
 export interface SentryConfigInput {
   dsn?: string;
   environment?: string;
+  release?: string;
   tracesSampleRate?: string;
   isProduction: boolean;
 }
@@ -13,11 +14,13 @@ export interface SentryRuntimeConfig {
   dsn: string;
   enabled: boolean;
   environment: string;
+  release: string;
   tracesSampleRate: number;
 }
 
 export function resolveSentryConfig(input: SentryConfigInput): SentryRuntimeConfig {
   const dsn = input.dsn?.trim() ?? "";
+  const release = input.release?.trim() || "1.0";
   const tracesSampleRate = parseTracesSampleRate(input.tracesSampleRate, input.isProduction);
 
   return {
@@ -26,6 +29,7 @@ export function resolveSentryConfig(input: SentryConfigInput): SentryRuntimeConf
     environment:
       input.environment?.trim() ||
       (input.isProduction ? "production" : "development"),
+    release,
     tracesSampleRate
   };
 }
@@ -35,6 +39,7 @@ export function initSentry() {
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.VITE_SENTRY_ENVIRONMENT,
     isProduction: import.meta.env.PROD,
+    release: import.meta.env.VITE_SENTRY_RELEASE,
     tracesSampleRate: import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE
   });
 
@@ -45,6 +50,7 @@ export function initSentry() {
   Sentry.init({
     dsn: config.dsn,
     environment: config.environment,
+    release: config.release,
     integrations:
       config.tracesSampleRate > 0
         ? [Sentry.browserTracingIntegration()]

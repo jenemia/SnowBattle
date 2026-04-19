@@ -12,6 +12,7 @@ describe("resolveSentryConfig", () => {
       dsn: "",
       enabled: false,
       environment: "production",
+      release: "1.0",
       tracesSampleRate: 0.1
     });
   });
@@ -22,11 +23,13 @@ describe("resolveSentryConfig", () => {
         dsn: "https://public@example.ingest.sentry.io/123",
         environment: "staging",
         isProduction: false,
+        release: "1.2.3",
         tracesSampleRate: "0.25"
       })
     ).toMatchObject({
       enabled: true,
       environment: "staging",
+      release: "1.2.3",
       tracesSampleRate: 0.25
     });
   });
@@ -48,5 +51,14 @@ describe("resolveSentryConfig", () => {
         isProduction: false
       }).tracesSampleRate
     ).toBe(0);
+  });
+
+  it("defaults release to 1.0 when release is missing", () => {
+    expect(
+      resolveSentryConfig({
+        dsn: "https://public@example.ingest.sentry.io/123",
+        isProduction: true
+      }).release
+    ).toBe("1.0");
   });
 });
