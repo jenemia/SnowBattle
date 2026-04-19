@@ -38,3 +38,11 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 ---
 
 Add whatever helps you do your job. This is your cheat sheet.
+
+### Sentry
+
+- snowbattle-web
+  - org: `rlatngus0333navercom`
+  - project: `delicate-glade-9174`
+  - project_id: `4511232284491776`
+  - checked_at: `2026-04-19`

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SnowBattle Sentry Ops"
+  short_description: "Repo-specific Sentry access, triage, and resolution workflow"
+  default_prompt: "Use $snowbattle-sentry-ops to access Sentry for SnowBattle, analyze an issue to root cause, decide when to mark it resolved, and keep org/project/project-id notes up to date."
