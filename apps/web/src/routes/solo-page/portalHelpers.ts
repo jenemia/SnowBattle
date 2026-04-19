@@ -25,11 +25,12 @@ export const RETURN_PORTAL_POSITION: PortalPosition = {
 
 export const PORTAL_TRIGGER_RADIUS = 1.8;
 export const VIBE_JAM_PORTAL_URL = "https://vibej.am/portal/2026";
+const FALLBACK_BASE_URL = "https://snowbattle.local/";
 
 const PORTAL_QUERY_KEYS = ["portal", "ref", "username", "color", "speed"] as const;
 
 export function createPortalContextFromUrl(href: string): PortalContext {
-  const url = new URL(href);
+  const url = resolveUrl(href);
   const portalValue = url.searchParams.get("portal");
   const speedValue = url.searchParams.get("speed");
 
@@ -43,7 +44,7 @@ export function createPortalContextFromUrl(href: string): PortalContext {
 }
 
 export function getCanonicalGameUrl(href: string) {
-  const url = new URL(href);
+  const url = resolveUrl(href);
 
   for (const key of PORTAL_QUERY_KEYS) {
     url.searchParams.delete(key);
@@ -75,7 +76,7 @@ export function buildReturnPortalUrl(options: {
   speed?: number | null;
   username?: string | null;
 }) {
-  const url = new URL(options.ref);
+  const url = resolveReturnTargetUrl(options.ref, options.currentGameUrl);
   url.searchParams.set("portal", "true");
   applyPortalParams(url, {
     color: options.color ?? null,
@@ -91,6 +92,32 @@ export function isPlayerInsidePortal(
   portal: PortalPosition
 ) {
   return Math.hypot(player.x - portal.x, player.z - portal.z) <= PORTAL_TRIGGER_RADIUS;
+}
+
+function resolveUrl(href: string, baseHref = FALLBACK_BASE_URL) {
+  try {
+    return new URL(href);
+  } catch {
+    try {
+      return new URL(href, baseHref);
+    } catch {
+      return new URL(baseHref);
+    }
+  }
+}
+
+function resolveReturnTargetUrl(ref: string, currentGameUrl: string) {
+  const trimmedRef = ref.trim();
+
+  if (/^https?:\/\//i.test(trimmedRef)) {
+    return resolveUrl(trimmedRef, currentGameUrl);
+  }
+
+  if (trimmedRef.startsWith("/")) {
+    return resolveUrl(trimmedRef, currentGameUrl);
+  }
+
+  return resolveUrl(currentGameUrl);
 }
 
 function applyPortalParams(

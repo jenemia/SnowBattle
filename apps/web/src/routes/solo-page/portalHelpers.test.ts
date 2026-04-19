@@ -33,6 +33,35 @@ describe("portalHelpers", () => {
     ).toBe("https://snowbattle.example/solo?foo=bar");
   });
 
+  it("builds a return portal url from a relative ref path", () => {
+    const url = new URL(
+      buildReturnPortalUrl({
+        currentGameUrl: "https://jenemia.github.io/SnowBattle/",
+        ref: "/SnowBattle/",
+        username: "Aurora Fox"
+      })
+    );
+
+    expect(url.origin + url.pathname).toBe("https://jenemia.github.io/SnowBattle/");
+    expect(url.searchParams.get("portal")).toBe("true");
+    expect(url.searchParams.get("ref")).toBe("https://jenemia.github.io/SnowBattle/");
+    expect(url.searchParams.get("username")).toBe("Aurora Fox");
+  });
+
+  it("falls back to the current game url when the return ref is malformed", () => {
+    const url = new URL(
+      buildReturnPortalUrl({
+        currentGameUrl: "https://jenemia.github.io/SnowBattle/",
+        ref: ":::not-a-valid-url:::",
+        username: "Aurora Fox"
+      })
+    );
+
+    expect(url.origin + url.pathname).toBe("https://jenemia.github.io/SnowBattle/");
+    expect(url.searchParams.get("portal")).toBe("true");
+    expect(url.searchParams.get("ref")).toBe("https://jenemia.github.io/SnowBattle/");
+  });
+
   it("builds the vibejam exit portal redirect", () => {
     const url = new URL(
       buildVibeJamPortalUrl({
