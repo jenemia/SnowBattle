@@ -201,6 +201,17 @@ export function bootMultiplayerPage(root: HTMLDivElement) {
 
   mountSession({
     autoConnect: false,
+    onSceneError: (error) => {
+      ui.statusPill.textContent = "3D unavailable";
+      ui.statusCode.textContent = "error";
+      ui.statusStage.textContent = "render";
+      ui.statusDetail.textContent = formatError(error);
+      ui.readout.textContent =
+        "This browser could not start the WebGL duel scene. Try solo mode on another device or browser.";
+      ui.resultBanner.textContent =
+        "WebGL initialization failed before the arena could render.";
+      ui.requeueButton.disabled = true;
+    },
     onSnapshot: (snapshot) => {
       latestSnapshot = snapshot;
       const hud = presentDuelHud(snapshot);
@@ -420,6 +431,10 @@ function createPreviewProvider(): GameSessionProvider {
       return () => {};
     }
   };
+}
+
+function formatError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function getMissingBackendMessage(reason: "production_missing" | "host_missing") {

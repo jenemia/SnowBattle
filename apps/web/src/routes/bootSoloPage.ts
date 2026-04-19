@@ -145,6 +145,16 @@ export function bootSoloPage(root: HTMLDivElement) {
 
     soloTeardown = mountGameSession({
       autoConnect: true,
+      onSceneError: (error) => {
+        ui.status.textContent = "3D unavailable";
+        ui.readout.textContent =
+          "This browser could not start the WebGL solo arena. Try a browser with WebGL enabled.";
+        ui.queueMeta.textContent = formatError(error);
+        ui.queueToggle.disabled = true;
+        ui.reset.disabled = true;
+        ui.portalCopy.hidden = true;
+        ui.timerBadge.hidden = true;
+      },
       onSnapshot: (snapshot) => {
         latestSoloSnapshot = snapshot;
         updateMetricNodes(snapshot);

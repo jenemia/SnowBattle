@@ -55,6 +55,7 @@ vi.mock("../../input/SoloInputController", () => {
   };
 });
 
+import { SoloArenaScene } from "../../game/SoloArenaScene";
 import { mountGameSession } from "./sessionMount";
 
 describe("mountGameSession", () => {
@@ -91,6 +92,36 @@ describe("mountGameSession", () => {
     expect(mockState.scene?.dispose).toHaveBeenCalledOnce();
     expect(provider.disconnect).toHaveBeenCalledOnce();
     expect(provider.unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it("reports scene construction failures without wiring input listeners", () => {
+    const provider = createProvider();
+    const onSnapshot = vi.fn();
+    const onSceneError = vi.fn();
+    const viewport = { innerHTML: "occupied" } as unknown as HTMLElement;
+
+    const SoloArenaSceneMock = vi.mocked(SoloArenaScene);
+    SoloArenaSceneMock.mockImplementationOnce(() => {
+      throw new Error("Error creating WebGL context.");
+    });
+
+    const teardown = mountGameSession({
+      autoConnect: false,
+      onSceneError,
+      onSnapshot,
+      provider,
+      viewport
+    });
+
+    expect(viewport.innerHTML).toBe("");
+    expect(onSceneError).toHaveBeenCalledTimes(1);
+    expect(mockState.scene).toBeNull();
+    expect(mockState.input).toBeNull();
+
+    teardown();
+
+    expect(provider.disconnect).toHaveBeenCalledOnce();
+    expect(onSnapshot).not.toHaveBeenCalled();
   });
 });
 

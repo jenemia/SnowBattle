@@ -9,6 +9,7 @@ import { LocalSoloProvider } from "../../providers/LocalSoloProvider";
 
 export interface GameSessionMountOptions {
   autoConnect?: boolean;
+  onSceneError?: (error: unknown) => void;
   onSnapshot: (snapshot: SessionSnapshot) => void;
   provider: GameSessionProvider;
   sceneOptions?: SoloArenaSceneOptions;
@@ -17,6 +18,7 @@ export interface GameSessionMountOptions {
 
 export function mountGameSession({
   autoConnect = true,
+  onSceneError,
   onSnapshot,
   provider,
   sceneOptions,
@@ -24,7 +26,17 @@ export function mountGameSession({
 }: GameSessionMountOptions) {
   viewport.innerHTML = "";
 
-  const scene = new SoloArenaScene(viewport, sceneOptions);
+  let scene: SoloArenaScene;
+
+  try {
+    scene = new SoloArenaScene(viewport, sceneOptions);
+  } catch (error) {
+    onSceneError?.(error);
+    return () => {
+      void provider.disconnect();
+    };
+  }
+
   const input = new SoloInputController(viewport, scene, provider);
   const unsubscribe = provider.subscribe((snapshot) => {
     scene.render(snapshot);
@@ -48,9 +60,11 @@ export function mountGameSession({
 
 export function mountSoloSession(
   viewport: HTMLElement,
-  onSnapshot: (snapshot: SessionSnapshot) => void
+  onSnapshot: (snapshot: SessionSnapshot) => void,
+  onSceneError?: (error: unknown) => void
 ) {
   return mountGameSession({
+    onSceneError,
     onSnapshot,
     provider: new LocalSoloProvider(),
     sceneOptions: {
